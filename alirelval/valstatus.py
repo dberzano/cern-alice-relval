@@ -1,6 +1,7 @@
 import sqlite3
 import logging
 from alipack import AliPack, AliPackError
+from timestamp import TimeStamp
 
 def sqlite3_dict_factory(cursor, row):
   d = {}
@@ -96,19 +97,29 @@ class Validation:
     for k in ValStatus.status.keys():
       if ValStatus.status[k] == self.status:
         status = k
+    if self.ended is None:
+      ended = '<not completed>'
+      timetaken = ended
+    else:
+      ended = self.ended
+      timetaken = str(self.ended - self.started)
     return \
       'Validation #%d:\n' \
-      ' - Started  : %d\n' \
-      ' - Ended    : %d\n' \
+      ' - Started  : %s\n' \
+      ' - Ended    : %s\n' \
+      ' - Delta    : %s\n' \
       ' - Status   : %s\n' \
       ' - PackId   : %d\n' \
       '%s\n' \
-      % (self.id, self.started, self.ended, status, self.package_id, self.package)
+      % (self.id, self.started, ended, timetaken, status, self.package_id, self.package)
 
   def _from_dict(self, dictionary):
     self.id = dictionary['validation_id']
-    self.started = dictionary['started']
-    self.ended = dictionary['ended']
+    self.started = TimeStamp( dictionary['started'] )
+    if dictionary['ended'] is not None:
+      self.ended = TimeStamp( dictionary['ended'] )
+    else:
+      self.ended = None
     self.status = dictionary['status']
     self.package_id = dictionary['package_id']
     self.package = AliPack(baseurl='', dictionary=dictionary)
