@@ -7,6 +7,7 @@
 import sys, os, urllib
 from prettytable import PrettyTable
 from alipack import AliPack, AliPackError
+from valstatus import ValStatus
 import logging, logging.handlers
 import ConfigParser
 from getopt import getopt, GetoptError
@@ -104,34 +105,6 @@ def init_config(config_file):
   return config_vars
 
 
-def init_db(dbpath):
-  log = get_logger()
-  log.debug('using database file %s' % dbpath)
-  db = sqlite3.connect(dbpath)
-  cursor = db.cursor()
-  cursor.execute('''
-    CREATE TABLE IF NOT EXISTS package(
-      package_id INT PRIMARY KEY,
-      tarball    TEXT UNIQUE NOT NULL,
-      software   TEXT NOT NULL,
-      version    TEXT NOT NULL,
-      arch       TEXT NOT NULL
-    )
-  ''')
-  cursor.execute('''
-    CREATE TABLE IF NOT EXISTS validation(
-      validation_id INT PRIMARY KEY,
-      started       INT,
-      ended         INT,
-      status        INT NOT NULL,
-      package_id    INT NOT NULL,
-      FOREIGN KEY(package_id) REFERENCES package(package_id)
-    )
-  ''')
-  db.commit()
-  db.close()
-
-
 def list_packages(baseurl):
   log = get_logger()
   try:
@@ -155,7 +128,7 @@ def list_packages(baseurl):
   print tab
 
 
-def queue_validation(tarball):
+def queue_validation(valstatus, tarball):
   log = get_logger()
   if tarball is None:
     inp = sys.stdin.read()
@@ -163,6 +136,7 @@ def queue_validation(tarball):
     log.debug('tarball to validate (from stdin): %s' % tarball)
   else:
     log.debug('tarball to validate: %s' % tarball)
+  valstatus.get_pack_from_tarball(tarball)
 
 
 def main(argv):
@@ -197,12 +171,12 @@ def main(argv):
   init_logger( log_directory=cfg['logdir'], debug=debug )
 
   # init the database
-  init_db(cfg['dbpath'])
+  valstatus = ValStatus(cfg['dbpath'])
 
   # what to do
   if action == 'list-packages':
     list_packages(cfg['packbaseurl'])
   elif action == 'queue-validation':
-    queue_validation(tarball)
+    queue_validation(valstatus, tarball)
 
   return 0
