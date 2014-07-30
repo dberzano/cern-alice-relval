@@ -110,7 +110,7 @@ class Validation:
       ' - Delta    : %s\n' \
       ' - Status   : %s\n' \
       ' - PackId   : %d\n' \
-      '%s\n' \
+      '%s' \
       % (self.id, self.started, ended, timetaken, status, self.package_id, self.package)
 
   def _from_dict(self, dictionary):

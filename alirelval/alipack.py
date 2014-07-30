@@ -33,7 +33,7 @@ class AliPack:
       ' - Version  : %s\n' \
       ' - Arch     : %s\n' \
       ' - Org      : %s\n' \
-      ' - Deps     : %s\n' \
+      ' - Deps     : %s' \
       % (self.get_package_name(), self.get_url(), self.software, \
          self.version, arch, self.org, deps)
 
