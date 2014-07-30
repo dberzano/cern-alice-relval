@@ -4,40 +4,27 @@
 # Controls automatic trigger of the ALICE Release Validation.
 #
 
-import sys, urllib, re
+import sys, urllib
 from prettytable import PrettyTable
 from alipack import AliPack, AliPackError
 
 
-AliRootPacksBaseUrl = 'http://pcalienbuild4.cern.ch:8889/tarballs'
+ALI_BASE_PACK_URL = 'http://pcalienbuild4.cern.ch:8889/tarballs'
 
 
 def get_available_packages():
   '''Returns a list of available packages in AliEn. The list is obtained from
-     the AliEn URL in AliRootPacksBaseUrl. Each element of the list is a
-     dictionary containing the following mandatory fields:
-
-      - tarballurl  : full download URL of the tarball
-      - software    : the program, e.g. AliRoot or ROOT
-      - version     : software's version, e.g. v5-03-Rev-23a
-      - platform    : the platform (not the arch), e.g. Linux-x86_64
-      - packagename : the name of the package, e.g. VO_ALICE@AliRoot::v12345
-      - arch        : architecture, e.g. x86_64-2.6-gnu-4.1.2 (can be None)
-      - packagedeps : array of dependencies, each in the same format as
-                      packagename (can be None)
-
-     Note that this function can throw an IOError.
+     the AliEn URL in ALI_BASE_PACK_URL.
   '''
 
   packlist = []
-  resp = urllib.urlopen(AliRootPacksBaseUrl+'/Packages')
+  resp = urllib.urlopen(ALI_BASE_PACK_URL+'/Packages')
   for l in resp:
     try:
-      packdef = AliPack()
-      packdef.from_string(l)
+      packdef = AliPack(l, ALI_BASE_PACK_URL)
       packlist.append(packdef)
     except AliPackError as e:
-      print 'spotted error: %s' % e
+      print 'skipping one package: %s' % e
       pass
 
   return packlist
@@ -50,16 +37,15 @@ def main(argv):
   except IOError as e:
     print 'Cannot read list of packages: %s' % e
 
-  tab = PrettyTable( [ 'Package name', 'generated', 'Arch', 'URL' ] )
+  tab = PrettyTable( [ 'Package name', 'Arch', 'URL' ] )
   for k in tab.align.keys():
     tab.align[k] = 'l'
   tab.padding_width = 1
   for p in packs:
     tab.add_row([
-      p.packagename,
-      p.get_name(),
+      p.get_package_name(),
       p.arch,
-      p.tarballurl
+      p.get_url()
     ])
 
   print tab
