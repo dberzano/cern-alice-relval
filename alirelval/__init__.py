@@ -103,13 +103,15 @@ def list_packages(baseurl):
     log.error('cannot read list of packages: %s' % e)
     return 1
 
-  tab = PrettyTable( [ 'Package name', 'Arch', 'URL' ] )
+  tab = PrettyTable( [ 'Organization', 'Software', 'Version', 'Arch', 'URL' ] )
   for k in tab.align.keys():
     tab.align[k] = 'l'
   tab.padding_width = 1
   for p in packs:
     tab.add_row([
-      p.get_package_name(),
+      p.org,
+      p.software,
+      p.version,
       p.arch,
       p.get_url()
     ])

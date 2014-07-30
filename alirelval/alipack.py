@@ -21,7 +21,6 @@ class AliPack:
       self.tarball  = a[0]
       self.software = a[1]
       self.version  = a[2]
-      self.platform = a[3]
 
       i2 = a[4].find('@')
       if i2 < 0:
@@ -31,7 +30,7 @@ class AliPack:
       if self.get_package_name() != a[4]:
         raise AliPackError('inconsistency in package name: %s' % rawstring)
 
-      i1 = a[0].find( self.platform )
+      i1 = a[0].find( a[3] )  # a[3] == platform
       i2 = a[0].find( '.tar' )
 
       if i2 > i1:
