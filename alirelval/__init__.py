@@ -6,6 +6,7 @@
 
 import sys, urllib, re
 from prettytable import PrettyTable
+from alipack import AliPack, AliPackError
 
 
 AliRootPacksBaseUrl = 'http://pcalienbuild4.cern.ch:8889/tarballs'
@@ -32,33 +33,11 @@ def get_available_packages():
   resp = urllib.urlopen(AliRootPacksBaseUrl+'/Packages')
   for l in resp:
     try:
-      a = l.strip().split('\t', 5)
-      packdef = {
-        'tarballurl':   a[0],
-        'software':     a[1],
-        'version':      a[2],
-        'platform':     a[3],
-        'packagename':  a[4]
-      }
-
-      if len(a) > 5:
-        packdef['packagedeps'] = a[5].split(',')
-      else:
-        packdef['packagedeps'] = None
-
-      i1 = packdef['tarballurl'].find( packdef['platform'] )
-      i2 = packdef['tarballurl'].find( '.tar' )
-
-      if i2 > i1:
-        packdef['arch'] = packdef['tarballurl'][i1:i2]
-      else:
-        packdef['arch'] = None
-
-      packdef['tarballurl'] = AliRootPacksBaseUrl + '/' + packdef['tarballurl']
-
+      packdef = AliPack()
+      packdef.from_string(l)
       packlist.append(packdef)
-
-    except IndexError:
+    except AliPackError as e:
+      print 'spotted error: %s' % e
       pass
 
   return packlist
@@ -71,15 +50,16 @@ def main(argv):
   except IOError as e:
     print 'Cannot read list of packages: %s' % e
 
-  tab = PrettyTable( [ 'Package name', 'Arch', 'URL' ] )
+  tab = PrettyTable( [ 'Package name', 'generated', 'Arch', 'URL' ] )
   for k in tab.align.keys():
     tab.align[k] = 'l'
   tab.padding_width = 1
   for p in packs:
     tab.add_row([
-      p['packagename'],
-      p['arch'],
-      p['tarballurl']
+      p.packagename,
+      p.get_name(),
+      p.arch,
+      p.tarballurl
     ])
 
   print tab
