@@ -1,7 +1,41 @@
 class AliPack:
 
-  def __init__(self, rawstring, base_url):
-    self._from_str(rawstring, base_url)
+  '''An ALICE package. Fields:
+      - tarball  : package file name (e.g. aliroot-blahblah.tar.gz) - not None
+      - software : software's name (e.g. AliRoot) - not None
+      - version  : version (e.g. vAN-12345) - not None
+      - arch     : architecture (e.g. Linux-x86_64-2.6-gnu-4.1.2) - may be None
+      - org      : virtual organization (e.g. VO_ALICE) not None
+      - deps     : array of package deps - may be None (but not empty)
+  '''
+
+  def __init__(self, rawstring=None, dictionary=None, baseurl=None):
+    if baseurl is None:
+      raise AliPackError('baseurl missing')
+    if rawstring is not None and dictionary is None:
+      self._from_str(rawstring, baseurl)
+    elif dictionary is not None and rawstring is None:
+      self._from_dict(dictionary, baseurl)
+
+  def __str__(self):
+    if self.deps is None:
+      deps = '<no deps>'
+    else:
+      deps = ', '.join(self.deps)
+    if self.arch is None:
+      arch = '<no arch>'
+    else:
+      arch = self.arch
+    return \
+      'Package %s:\n' \
+      ' - URL      : %s\n' \
+      ' - Software : %s\n' \
+      ' - Version  : %s\n' \
+      ' - Arch     : %s\n' \
+      ' - Org      : %s\n' \
+      ' - Deps     : %s\n' \
+      % (self.get_package_name(), self.get_url(), self.software, \
+         self.version, arch, self.org, deps)
 
   def get_package_name(self):
     return '%s@%s::%s' % (self.org, self.software, self.version)
@@ -9,7 +43,25 @@ class AliPack:
   def get_url(self):
     return '%s/%s' % ( self._baseurl, self.tarball )
 
-  def _from_str(self, rawstring, base_url):
+  def _from_dict(self, dictionary, baseurl):
+    '''Constructs the package definition from a dictionary. May throw a
+       KeyError.
+    '''
+    self.tarball  = dictionary['tarball']
+    self.software = dictionary['software']
+    self.version  = dictionary['version']
+    self.arch     = dictionary['arch']
+    self.org      = dictionary['org']
+
+    if dictionary['deps'] is not None:
+      self.deps = dictionary['deps'].split(',')
+    else:
+      self.deps = None
+
+    self._baseurl = baseurl
+
+
+  def _from_str(self, rawstring, baseurl):
     '''Constructs the package definition from a string. String's format is the
        same as lines here: http://pcalienbuild4.cern.ch:8889/tarballs/Packages
     '''
@@ -38,12 +90,12 @@ class AliPack:
       else:
         self.arch = None
 
-      self._baseurl = base_url
+      self._baseurl = baseurl
 
       if len(a) > 5:
-        self._deps = a[5].split(',')
+        self.deps = a[5].split(',')
       else:
-        self._deps = None
+        self.deps = None
 
     except IndexError:
       raise AliPackError('invalid string format for package definition: %s' % rawstring)

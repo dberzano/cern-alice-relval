@@ -23,7 +23,7 @@ def get_available_packages(baseurl):
   resp = urllib.urlopen(baseurl+'/Packages')
   for l in resp:
     try:
-      packdef = AliPack(l, baseurl)
+      packdef = AliPack(rawstring=l, baseurl=baseurl)
       packlist.append(packdef)
     except AliPackError as e:
       print 'skipping one package: %s' % e
@@ -105,27 +105,28 @@ def init_config(config_file):
   return config_vars
 
 
-def list_packages(baseurl):
+def list_packages(baseurl, extended, cached=False, valstatus=None):
   log = get_logger()
-  try:
-    packs = get_available_packages(baseurl)
-  except IOError as e:
-    log.error('cannot read list of packages: %s' % e)
-    return 1
+  if cached:
+    packs = valstatus.get_packages()
+  else:
+    packs = get_available_packages(baseurl) # IOError
 
-  tab = PrettyTable( [ 'Organization', 'Software', 'Version', 'Arch', 'URL' ] )
-  for k in tab.align.keys():
-    tab.align[k] = 'l'
-  tab.padding_width = 1
-  for p in packs:
-    tab.add_row([
-      p.org,
-      p.software,
-      p.version,
-      p.arch,
-      p.get_url()
-    ])
-  print tab
+  if extended:
+    for p in packs:
+      print p
+  else:
+    tab = PrettyTable( [ 'Package', 'Arch', 'URL' ] )
+    for k in tab.align.keys():
+      tab.align[k] = 'l'
+    tab.padding_width = 1
+    for p in packs:
+      tab.add_row([
+        p.get_package_name(),
+        p.arch,
+        p.get_url()
+      ])
+    print tab
 
 
 def queue_validation(valstatus, tarball):
@@ -136,7 +137,7 @@ def queue_validation(valstatus, tarball):
     log.debug('tarball to validate (from stdin): %s' % tarball)
   else:
     log.debug('tarball to validate: %s' % tarball)
-  valstatus.get_pack_from_tarball(tarball)
+  print valstatus.get_pack_from_tarball(tarball)
 
 
 def main(argv):
@@ -146,14 +147,17 @@ def main(argv):
 
   debug = False
   tarball = None
+  extended = False
 
   try:
-    opts, remainder = getopt(argv, 'a:bc', [ 'debug', 'tarball=', 'dummy3' ])
+    opts, remainder = getopt(argv, 'a:bc', [ 'debug', 'tarball=', 'extended' ])
     for o, a in opts:
       if o == '--debug':
         debug = True
       elif o == '--tarball':
         tarball = a
+      elif o == '--extended':
+        extended = True
   except GetoptError as e:
     log.error('error parsing options: %s' % e)
     return 1
@@ -171,11 +175,13 @@ def main(argv):
   init_logger( log_directory=cfg['logdir'], debug=debug )
 
   # init the database
-  valstatus = ValStatus(cfg['dbpath'])
+  valstatus = ValStatus(dbpath=cfg['dbpath'], baseurl=cfg['packbaseurl'])
 
   # what to do
   if action == 'list-packages':
-    list_packages(cfg['packbaseurl'])
+    list_packages(cfg['packbaseurl'], extended)
+  elif action == 'list-known-packages':
+    list_packages(cfg['packbaseurl'], extended, cached=True, valstatus=valstatus)
   elif action == 'queue-validation':
     queue_validation(valstatus, tarball)
 

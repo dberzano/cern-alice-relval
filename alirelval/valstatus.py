@@ -1,5 +1,6 @@
 import sqlite3
 import logging
+from alipack import AliPack, AliPackError
 
 def sqlite3_dict_factory(cursor, row):
   d = {}
@@ -9,8 +10,11 @@ def sqlite3_dict_factory(cursor, row):
 
 class ValStatus:
 
-  def __init__(self, dbpath):
+  def __init__(self, dbpath=None, baseurl=None):
+    if dbpath is None or baseurl is None:
+      raise ValStatusError('dbpath and baseurl are mandatory')
     self._dbpath = dbpath
+    self._baseurl = baseurl
     self._log = logging.getLogger('ValStatus')
     self._log.debug('opening SQLite3 database %s' % dbpath)
     self._db = sqlite3.connect(dbpath)
@@ -21,8 +25,10 @@ class ValStatus:
         package_id INTEGER PRIMARY KEY AUTOINCREMENT,
         tarball    TEXT UNIQUE NOT NULL,
         software   TEXT NOT NULL,
+        org        TEXT NOT NULL,
         version    TEXT NOT NULL,
-        arch       TEXT NOT NULL
+        arch       TEXT NOT NULL,
+        deps       TEXT
       )
     ''')
     cursor.execute('''
@@ -46,3 +52,15 @@ class ValStatus:
       self._log.debug('could not find package in db')
     else:
       self._log.debug('package found in db')
+      return AliPack(dictionary=result, baseurl=self._baseurl)
+
+  def get_packages(self):
+    cursor = self._db.cursor()
+    cursor.execute('SELECT * FROM package')
+    packs = []
+    for r in cursor:
+      packs.append( AliPack(dictionary=r, baseurl=self._baseurl) )
+    return packs
+
+class ValStatusError(Exception):
+  pass
