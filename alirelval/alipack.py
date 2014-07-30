@@ -11,8 +11,8 @@ class AliPack:
        same as lines here: http://pcalienbuild4.cern.ch:8889/tarballs/Packages
     '''
     try:
-      # remember to change it to None
-      a = s.strip().split('\t', 5)
+
+      a = s.strip().split(None, 5)
 
       self.tarballurl  = a[0]
       self.software    = a[1]
