@@ -11,19 +11,16 @@ import logging, logging.handlers
 import ConfigParser
 
 
-ALI_BASE_PACK_URL = 'http://pcalienbuild4.cern.ch:8889/tarballs'
-
-
-def get_available_packages():
+def get_available_packages(baseurl):
   '''Returns a list of available packages in AliEn. The list is obtained from
-     the AliEn URL in ALI_BASE_PACK_URL.
+     the given URL.
   '''
 
   packlist = []
-  resp = urllib.urlopen(ALI_BASE_PACK_URL+'/Packages')
+  resp = urllib.urlopen(baseurl+'/Packages')
   for l in resp:
     try:
-      packdef = AliPack(l, ALI_BASE_PACK_URL)
+      packdef = AliPack(l, baseurl)
       packlist.append(packdef)
     except AliPackError as e:
       print 'skipping one package: %s' % e
@@ -32,7 +29,7 @@ def get_available_packages():
   return packlist
 
 
-def init_logger(log_directory):
+def init_logger(log_directory=None):
   format = '%(asctime)s [%(name)s.%(funcName)s] %(levelname)s %(message)s'
   datefmt = '%Y-%m-%d %H:%M:%S'
   # CRITICAL=50, ERROR=40, WARNING=30, INFO=20, DEBUG=10, NOTSET=0
@@ -67,7 +64,8 @@ def init_config(config_file):
   # 'key': ['type', default]
   config_vars = {
     'logdir': ['str', '~/.alirelval/log'],
-    'db': ['str', '~/.alirelval/status.sqlite']
+    'db': ['str', '~/.alirelval/status.sqlite'],
+    'packbaseurl': ['str', 'http://pcalienbuild4.cern.ch:8889/tarballs']
   }
 
   for c in config_vars.keys():
@@ -81,22 +79,24 @@ def init_config(config_file):
       elif config_vars[c][0] == 'bool':
         config_vars[c] = parser.getboolean(sec, c)
     except Exception:
-      log.warning('using default for %s.%s = %s' % (sec, c, config_vars[c][1]))
       config_vars[c] = config_vars[c][1]
+      log.debug('%s.%s = %s (default)' % (sec, c, config_vars[c]))
+    log.debug('%s.%s = %s (from file)' % (sec, c, config_vars[c]))
 
   return config_vars
 
 
 def main(argv):
 
-  init_logger( os.path.expanduser('~/alirelval') )
-  print init_config( os.path.expanduser('~/.alirelval/alirelval.conf') )
+  init_logger()
+  cfg = init_config( os.path.expanduser('~/.alirelval/alirelval.conf') )
+  init_logger( os.path.expanduser(cfg['logdir']) )
 
   log = logging.getLogger('alirelval')
   log.info('ALICE Release Validation trigger started')
 
   try:
-    packs = get_available_packages()
+    packs = get_available_packages( cfg['packbaseurl'] )
   except IOError as e:
     log.error('cannot read list of packages: %s' % e)
     return 1
@@ -111,6 +111,6 @@ def main(argv):
       p.arch,
       p.get_url()
     ])
-
   print tab
+
   return 0
