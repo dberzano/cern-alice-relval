@@ -9,6 +9,7 @@ from prettytable import PrettyTable
 from alipack import AliPack, AliPackError
 import logging, logging.handlers
 import ConfigParser
+from getopt import getopt, GetoptError
 
 
 def get_available_packages(baseurl):
@@ -29,14 +30,23 @@ def get_available_packages(baseurl):
   return packlist
 
 
-def init_logger(log_directory=None):
+def get_logger():
+  return logging.getLogger('alirelval')
+
+
+def init_logger(log_directory=None, debug=False):
   format = '%(asctime)s [%(name)s.%(funcName)s] %(levelname)s %(message)s'
   datefmt = '%Y-%m-%d %H:%M:%S'
-  # CRITICAL=50, ERROR=40, WARNING=30, INFO=20, DEBUG=10, NOTSET=0
-  level = logging.DEBUG
 
-  # log to console
-  logging.basicConfig(level=level, format=format, datefmt=datefmt, stream=sys.stderr)
+  # CRITICAL=50, ERROR=40, WARNING=30, INFO=20, DEBUG=10, NOTSET=0
+  if debug:
+    level = logging.DEBUG
+  else:
+    level = logging.INFO
+
+  # configure the root logger
+  logging.basicConfig(format=format, datefmt=datefmt, stream=sys.stderr)
+  logging.getLogger('').setLevel(level)
 
   # log to file as well
   if log_directory is not None:
@@ -56,7 +66,7 @@ def init_logger(log_directory=None):
 
 
 def init_config(config_file):
-  log = logging.getLogger('alirelval')
+  log = get_logger()
   parser = ConfigParser.SafeConfigParser()
   parser.read(config_file)
   sec = 'alirelval'
@@ -85,18 +95,10 @@ def init_config(config_file):
 
   return config_vars
 
-
-def main(argv):
-
-  init_logger()
-  cfg = init_config( os.path.expanduser('~/.alirelval/alirelval.conf') )
-  init_logger( os.path.expanduser(cfg['logdir']) )
-
-  log = logging.getLogger('alirelval')
-  log.info('ALICE Release Validation trigger started')
-
+def list_packages(baseurl):
+  log = get_logger()
   try:
-    packs = get_available_packages( cfg['packbaseurl'] )
+    packs = get_available_packages(baseurl)
   except IOError as e:
     log.error('cannot read list of packages: %s' % e)
     return 1
@@ -112,5 +114,38 @@ def main(argv):
       p.get_url()
     ])
   print tab
+
+
+def main(argv):
+
+  init_logger(log_directory=None, debug=False)
+  log = get_logger()
+
+  debug = False
+
+  try:
+    opts, remainder = getopt(argv, 'a:bc', [ 'debug', 'dummy2', 'dummy3' ])
+    for o, a in opts:
+      if o == '--debug':
+        debug = True
+  except GetoptError as e:
+    log.error('error parsing options: %s' % e)
+    return 1
+
+  try:
+    action = remainder[0]
+  except IndexError:
+    log.error('please specify an action')
+    return 1
+
+  # read configuration and re-init logger
+  if debug:
+    init_logger(log_directory=None, debug=True)
+  cfg = init_config( os.path.expanduser('~/.alirelval/alirelval.conf') )
+  init_logger( log_directory=os.path.expanduser(cfg['logdir']), debug=debug )
+
+  # what to do
+  if action == 'list-packages':
+    list_packages(cfg['packbaseurl'])
 
   return 0
