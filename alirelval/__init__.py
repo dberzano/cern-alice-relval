@@ -8,6 +8,7 @@ import sys, os, urllib
 from prettytable import PrettyTable
 from alipack import AliPack, AliPackError
 import logging, logging.handlers
+import ConfigParser
 
 
 ALI_BASE_PACK_URL = 'http://pcalienbuild4.cern.ch:8889/tarballs'
@@ -57,9 +58,39 @@ def init_logger(log_directory):
   return None
 
 
+def init_config(config_file):
+  log = logging.getLogger('alirelval')
+  parser = ConfigParser.SafeConfigParser()
+  parser.read(config_file)
+  sec = 'alirelval'
+
+  # 'key': ['type', default]
+  config_vars = {
+    'logdir': ['str', '~/.alirelval/log'],
+    'db': ['str', '~/.alirelval/status.sqlite']
+  }
+
+  for c in config_vars.keys():
+    try:
+      if config_vars[c][0] == 'str':
+        config_vars[c] = parser.get(sec, c)
+      elif config_vars[c][0] == 'int':
+        config_vars[c] = parser.getint(sec, c)
+      elif config_vars[c][0] == 'float':
+        config_vars[c] = parser.getfloat(sec, c)
+      elif config_vars[c][0] == 'bool':
+        config_vars[c] = parser.getboolean(sec, c)
+    except Exception:
+      log.warning('using default for %s.%s = %s' % (sec, c, config_vars[c][1]))
+      config_vars[c] = config_vars[c][1]
+
+  return config_vars
+
+
 def main(argv):
 
   init_logger( os.path.expanduser('~/alirelval') )
+  print init_config( os.path.expanduser('~/.alirelval/alirelval.conf') )
 
   log = logging.getLogger('alirelval')
   log.info('ALICE Release Validation trigger started')
