@@ -155,18 +155,31 @@ def list_packages(baseurl):
   print tab
 
 
+def queue_validation(tarball):
+  log = get_logger()
+  if tarball is None:
+    inp = sys.stdin.read()
+    tarball = inp.strip()
+    log.debug('tarball to validate (from stdin): %s' % tarball)
+  else:
+    log.debug('tarball to validate: %s' % tarball)
+
+
 def main(argv):
 
   init_logger(log_directory=None, debug=False)
   log = get_logger()
 
   debug = False
+  tarball = None
 
   try:
-    opts, remainder = getopt(argv, 'a:bc', [ 'debug', 'dummy2', 'dummy3' ])
+    opts, remainder = getopt(argv, 'a:bc', [ 'debug', 'tarball=', 'dummy3' ])
     for o, a in opts:
       if o == '--debug':
         debug = True
+      elif o == '--tarball':
+        tarball = a
   except GetoptError as e:
     log.error('error parsing options: %s' % e)
     return 1
@@ -189,5 +202,7 @@ def main(argv):
   # what to do
   if action == 'list-packages':
     list_packages(cfg['packbaseurl'])
+  elif action == 'queue-validation':
+    queue_validation(tarball)
 
   return 0
