@@ -1,6 +1,12 @@
 import sqlite3
 import logging
 
+def sqlite3_dict_factory(cursor, row):
+  d = {}
+  for idx, col in enumerate(cursor.description):
+      d[col[0]] = row[idx]
+  return d
+
 class ValStatus:
 
   def __init__(self, dbpath):
@@ -8,6 +14,7 @@ class ValStatus:
     self._log = logging.getLogger('ValStatus')
     self._log.debug('opening SQLite3 database %s' % dbpath)
     self._db = sqlite3.connect(dbpath)
+    self._db.row_factory = sqlite3_dict_factory
     cursor = self._db.cursor()
     cursor.execute('''
       CREATE TABLE IF NOT EXISTS package(
