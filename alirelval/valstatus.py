@@ -10,6 +10,11 @@ def sqlite3_dict_factory(cursor, row):
 
 class ValStatus:
 
+  RUNNING = 0
+  NOT_RUNNING = 1
+  DONE_OK = 2
+  DONE_FAIL = 3
+
   def __init__(self, dbpath=None, baseurl=None):
     if dbpath is None or baseurl is None:
       raise ValStatusError('dbpath and baseurl are mandatory')
@@ -41,6 +46,7 @@ class ValStatus:
         FOREIGN KEY(package_id) REFERENCES package(package_id)
       )
     ''')
+    cursor.execute('PRAGMA foreign_keys = ON') # not sure
     self._db.commit()
     #self._db.close()
 
@@ -50,6 +56,7 @@ class ValStatus:
     result = cursor.fetchone()
     if result is None:
       self._log.debug('could not find package in db')
+      return None
     else:
       self._log.debug('package found in db')
       return AliPack(dictionary=result, baseurl=self._baseurl)
@@ -62,5 +69,44 @@ class ValStatus:
       packs.append( AliPack(dictionary=r, baseurl=self._baseurl) )
     return packs
 
+  def get_validations(self):
+    cursor = self._db.cursor()
+    cursor.execute('SELECT * FROM validation AUTO JOIN package')
+    vals = []
+    for r in cursor:
+      vals.append( Validation(dictionary=r) )
+    return vals
+
+
 class ValStatusError(Exception):
+  pass
+
+
+class Validation:
+
+  def __init__(self, dictionary=None):
+    if dictionary is None:
+      raise ValidationError('dictionary is mandatory')
+    self._from_dict(dictionary)
+
+  def __str__(self):
+    return \
+      'Validation #%d:\n' \
+      ' - Started  : %d\n' \
+      ' - Ended    : %d\n' \
+      ' - Status   : %d\n' \
+      ' - PackId   : %d\n' \
+      '%s\n' \
+      % (self.id, self.started, self.ended, self.status, self.package_id, self.package)
+
+  def _from_dict(self, dictionary):
+    self.id = dictionary['validation_id']
+    self.started = dictionary['started']
+    self.ended = dictionary['ended']
+    self.status = dictionary['status']
+    self.package_id = dictionary['package_id']
+    self.package = AliPack(baseurl='', dictionary=dictionary)
+
+
+class ValidationError(Exception):
   pass

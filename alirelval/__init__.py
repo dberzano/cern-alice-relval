@@ -140,6 +140,11 @@ def queue_validation(valstatus, tarball):
   print valstatus.get_pack_from_tarball(tarball)
 
 
+def list_validations(valstatus):
+  for v in valstatus.get_validations():
+    print v
+
+
 def main(argv):
 
   init_logger(log_directory=None, debug=False)
@@ -182,6 +187,8 @@ def main(argv):
     list_packages(cfg['packbaseurl'], extended)
   elif action == 'list-known-packages':
     list_packages(cfg['packbaseurl'], extended, cached=True, valstatus=valstatus)
+  elif action == 'list-validations':
+    list_validations(valstatus)
   elif action == 'queue-validation':
     queue_validation(valstatus, tarball)
 
