@@ -10,10 +10,12 @@ def sqlite3_dict_factory(cursor, row):
 
 class ValStatus:
 
-  RUNNING = 0
-  NOT_RUNNING = 1
-  DONE_OK = 2
-  DONE_FAIL = 3
+  status = {
+    'RUNNING': 0,
+    'NOT_RUNNING': 1,
+    'DONE_OK': 2,
+    'DONE_FAIL': 3
+  }
 
   def __init__(self, dbpath=None, baseurl=None):
     if dbpath is None or baseurl is None:
@@ -90,14 +92,18 @@ class Validation:
     self._from_dict(dictionary)
 
   def __str__(self):
+    status = '<unknown>'
+    for k in ValStatus.status.keys():
+      if ValStatus.status[k] == self.status:
+        status = k
     return \
       'Validation #%d:\n' \
       ' - Started  : %d\n' \
       ' - Ended    : %d\n' \
-      ' - Status   : %d\n' \
+      ' - Status   : %s\n' \
       ' - PackId   : %d\n' \
       '%s\n' \
-      % (self.id, self.started, self.ended, self.status, self.package_id, self.package)
+      % (self.id, self.started, self.ended, status, self.package_id, self.package)
 
   def _from_dict(self, dictionary):
     self.id = dictionary['validation_id']
