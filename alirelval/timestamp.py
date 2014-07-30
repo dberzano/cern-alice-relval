@@ -20,6 +20,12 @@ class TimeStamp:
     #return self._dt_utc.strftime('%Y-%m-%e %H:%M:%S')
     return str(self._dt_utc)
 
+  def __sub__(self, other):
+    '''Returns a timedelta object. Order: self-other. Get seconds with
+       <timedelta>.total_seconds().
+    '''
+    return datetime.timedelta( seconds=self.get_timestamp_usec_utc()-other.get_timestamp_usec_utc() )
+
   @staticmethod
   def assert_unit_test():
     tsraw = 1406754375.6
