@@ -81,7 +81,7 @@ class ValStatus:
 
   def get_validations(self):
     cursor = self._db.cursor()
-    cursor.execute('SELECT * FROM validation AUTO JOIN package')
+    cursor.execute('SELECT * FROM validation JOIN package ON package.package_id=validation.package_id')
     vals = []
     for r in cursor:
       vals.append( Validation(dictionary=r) )
