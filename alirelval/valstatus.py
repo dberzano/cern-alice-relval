@@ -53,16 +53,23 @@ class ValStatus:
     self._db.commit()
     #self._db.close()
 
-  def get_pack_from_tarball(self, tarball):
+  def get_pack_from_tarball(self, tarball, alipacks):
     cursor = self._db.cursor()
     cursor.execute('SELECT * FROM package WHERE tarball=? LIMIT 1', (tarball,))
     result = cursor.fetchone()
     if result is None:
-      self._log.debug('could not find package in db')
-      return None
+      self._log.debug('could not find package in db: searching in the remote list')
+      pack = None
+      for ap in alipacks:
+        if ap.tarball == tarball:
+          pack = ap
+          self._log.debug('found package: %s, inserting into database' % pack.get_package_name())
+          self.add_package(pack)
+          break
     else:
       self._log.debug('package found in db')
-      return AliPack(dictionary=result, baseurl=self._baseurl)
+      pack = AliPack(dictionary=result, baseurl=self._baseurl)
+    return pack
 
   def get_packages(self):
     cursor = self._db.cursor()
@@ -79,6 +86,17 @@ class ValStatus:
     for r in cursor:
       vals.append( Validation(dictionary=r) )
     return vals
+
+  def add_package(self, pack):
+    cursor = self._db.cursor()
+    cursor.execute('''
+      INSERT INTO package(tarball,software,version,arch,org,deps)
+      VALUES(?,?,?,?,?,?)
+    ''',
+    (pack.tarball, pack.software, pack.version, pack.arch, pack.org, ','.join(pack.deps)))
+    self._db.commit()
+    self._log.debug('package %s inserted successfully with id %d' % (pack.get_package_name(), cursor.lastrowid))
+    return cursor.lastrowid
 
 
 class ValStatusError(Exception):

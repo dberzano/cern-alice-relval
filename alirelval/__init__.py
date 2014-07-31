@@ -131,15 +131,16 @@ def list_packages(baseurl, extended, cached=False, valstatus=None):
     print tab
 
 
-def queue_validation(valstatus, tarball):
+def queue_validation(valstatus, baseurl, tarball):
   log = get_logger()
   if tarball is None:
+    log.debug('tarball not provided, waiting on stdin (terminate with EOF)...')
     inp = sys.stdin.read()
     tarball = inp.strip()
     log.debug('tarball to validate (from stdin): %s' % tarball)
   else:
     log.debug('tarball to validate: %s' % tarball)
-  print valstatus.get_pack_from_tarball(tarball)
+  print valstatus.get_pack_from_tarball(tarball, get_available_packages(baseurl))
 
 
 def list_validations(valstatus):
@@ -192,6 +193,6 @@ def main(argv):
   elif action == 'list-validations':
     list_validations(valstatus)
   elif action == 'queue-validation':
-    queue_validation(valstatus, tarball)
+    queue_validation(valstatus, cfg['packbaseurl'], tarball)
 
   return 0
