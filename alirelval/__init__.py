@@ -140,7 +140,19 @@ def queue_validation(valstatus, baseurl, tarball):
     log.debug('tarball to validate (from stdin): %s' % tarball)
   else:
     log.debug('tarball to validate: %s' % tarball)
-  print valstatus.get_pack_from_tarball(tarball, get_available_packages(baseurl))
+  # package to validate (cache in sqlite)
+  pack = valstatus.get_cached_pack_from_tarball(tarball, get_available_packages(baseurl))
+  if pack is None:
+    log.error('package from tarball %s not found!' % tarball)
+    return False
+  else:
+    #print pack
+    # queue validation
+    if valstatus.add_validation(pack):
+      log.info('queued validation of %s' % pack.tarball)
+    else:
+      log.warning('validation of %s already queued' % pack.tarball)
+    return True
 
 
 def list_validations(valstatus):

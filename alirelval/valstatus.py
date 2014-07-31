@@ -54,7 +54,7 @@ class ValStatus:
     self._db.commit()
     #self._db.close()
 
-  def get_pack_from_tarball(self, tarball, alipacks):
+  def get_cached_pack_from_tarball(self, tarball, alipacks):
     cursor = self._db.cursor()
     cursor.execute('SELECT * FROM package WHERE tarball=? LIMIT 1', (tarball,))
     result = cursor.fetchone()
@@ -65,10 +65,14 @@ class ValStatus:
         if ap.tarball == tarball:
           pack = ap
           self._log.debug('found package: %s, inserting into database' % pack.get_package_name())
-          self.add_package(pack)
+          packid = self._add_package_cache(pack)
+          self._log.debug('package inserted in db with id %d' % packid)
           break
+      if pack is None:
+        self._log.debug('package not found')
     else:
-      self._log.debug('package found in db')
+      packid = result['package_id']
+      self._log.debug('package found in db with id %d' % packid)
       pack = AliPack(dictionary=result, baseurl=self._baseurl)
     return pack
 
@@ -88,7 +92,7 @@ class ValStatus:
       vals.append( Validation(dictionary=r, baseurl=self._baseurl) )
     return vals
 
-  def add_package(self, pack):
+  def _add_package_cache(self, pack):
     cursor = self._db.cursor()
     cursor.execute('''
       INSERT INTO package(tarball,software,version,arch,org,deps)
@@ -99,6 +103,28 @@ class ValStatus:
     self._log.debug('package %s inserted successfully with id %d' % (pack.get_package_name(), cursor.lastrowid))
     return cursor.lastrowid
 
+  def add_validation(self, pack):
+    cursor = self._db.cursor()
+    inserted = TimeStamp()
+    status = self.status['NOT_RUNNING']
+    cursor.execute('SELECT package_id FROM package WHERE tarball=?', (pack.tarball,))
+    package_id = cursor.fetchone()['package_id']  # NoneType
+    self._log.debug('found id %d for %s' % (package_id, pack.tarball))
+    # if a validation for that package which is NOT_RUNNING or RUNNING already exists, don't insert
+    cursor.execute('''
+      INSERT INTO validation(inserted,status,package_id)
+      SELECT ?,?,?
+      WHERE NOT EXISTS (
+        SELECT 1 FROM validation WHERE package_id=? AND ( status == ? OR status == ? )
+      )
+    ''', (inserted.get_timestamp_usec_utc(), status, package_id, package_id, self.status['NOT_RUNNING'], self.status['RUNNING']))
+    self._db.commit()
+    if cursor.lastrowid == 0:
+      self._log.debug('validation for %s already queued or in progress' % pack.tarball)
+      return False
+    else:
+      self._log.debug('validation for %s queued with id %d' % (pack.tarball,cursor.lastrowid))
+      return True
 
 class ValStatusError(Exception):
   pass
