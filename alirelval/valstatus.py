@@ -42,6 +42,7 @@ class ValStatus:
     cursor.execute('''
       CREATE TABLE IF NOT EXISTS validation(
         validation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        inserted      INTEGER NOT NULL,
         started       INTEGER,
         ended         INTEGER,
         status        INTEGER NOT NULL,
@@ -115,25 +116,36 @@ class Validation:
     for k in ValStatus.status.keys():
       if ValStatus.status[k] == self.status:
         status = k
-    if self.ended is None:
+    if self.started is None:
+      started = '<not started>'
+      ended = started
+      timetaken = started
+    elif self.ended is not None:
+      started = self.started
       ended = '<not completed>'
       timetaken = ended
     else:
+      started = self.started
       ended = self.ended
-      timetaken = str(self.ended - self.started)
+      timetaken = ended-started
     return \
       'Validation #%d:\n' \
+      ' - Added    : %s\n' \
       ' - Started  : %s\n' \
       ' - Ended    : %s\n' \
       ' - Delta    : %s\n' \
       ' - Status   : %s\n' \
       ' - PackId   : %d\n' \
       '%s' \
-      % (self.id, self.started, ended, timetaken, status, self.package_id, self.package)
+      % (self.id, self.inserted, started, ended, timetaken, status, self.package_id, self.package)
 
   def _from_dict(self, dictionary):
     self.id = dictionary['validation_id']
-    self.started = TimeStamp( dictionary['started'] )
+    self.inserted = TimeStamp( dictionary['inserted'] )
+    if dictionary['started'] is not None:
+      self.started = TimeStamp( dictionary['started'] )
+    else:
+      self.started = None
     if dictionary['ended'] is not None:
       self.ended = TimeStamp( dictionary['ended'] )
     else:
