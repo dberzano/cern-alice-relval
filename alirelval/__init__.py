@@ -113,7 +113,6 @@ def list_packages(baseurl, extended, cached=False, valstatus=None):
     packs = valstatus.get_packages()
   else:
     packs = get_available_packages(baseurl) # IOError
-
   if extended:
     for p in packs:
       print p
@@ -133,6 +132,7 @@ def list_packages(baseurl, extended, cached=False, valstatus=None):
         deps
       ])
     print tab
+  return True
 
 
 def queue_validation(valstatus, baseurl, tarball):
@@ -162,6 +162,7 @@ def queue_validation(valstatus, baseurl, tarball):
 def list_validations(valstatus):
   for v in valstatus.get_validations():
     print v
+  return True
 
 
 def main(argv):
