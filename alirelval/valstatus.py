@@ -85,7 +85,7 @@ class ValStatus:
     cursor.execute('SELECT * FROM validation JOIN package ON package.package_id=validation.package_id')
     vals = []
     for r in cursor:
-      vals.append( Validation(dictionary=r) )
+      vals.append( Validation(dictionary=r, baseurl=self._baseurl) )
     return vals
 
   def add_package(self, pack):
@@ -106,10 +106,10 @@ class ValStatusError(Exception):
 
 class Validation:
 
-  def __init__(self, dictionary=None):
-    if dictionary is None:
-      raise ValidationError('dictionary is mandatory')
-    self._from_dict(dictionary)
+  def __init__(self, dictionary=None, baseurl=None):
+    if dictionary is None or baseurl is None:
+      raise ValidationError('all parameters are mandatory')
+    self._from_dict(dictionary, baseurl)
 
   def __str__(self):
     status = '<unknown>'
@@ -139,7 +139,7 @@ class Validation:
       '%s' \
       % (self.id, self.inserted, started, ended, timetaken, status, self.package_id, self.package)
 
-  def _from_dict(self, dictionary):
+  def _from_dict(self, dictionary, baseurl):
     self.id = dictionary['validation_id']
     self.inserted = TimeStamp( dictionary['inserted'] )
     if dictionary['started'] is not None:
@@ -152,7 +152,7 @@ class Validation:
       self.ended = None
     self.status = dictionary['status']
     self.package_id = dictionary['package_id']
-    self.package = AliPack(baseurl='', dictionary=dictionary)
+    self.package = AliPack(baseurl=baseurl, dictionary=dictionary)
 
 
 class ValidationError(Exception):
