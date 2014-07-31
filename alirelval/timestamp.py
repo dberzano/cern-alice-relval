@@ -7,8 +7,11 @@ class TimeStamp:
      names. Small but sufficient for our purposes.
   '''
 
-  def __init__(self, ts_utc):
-    self._dt_utc = datetime.datetime.utcfromtimestamp(ts_utc)
+  def __init__(self, ts_utc=None):
+    if ts_utc is None:
+      self._dt_utc = datetime.datetime.utcnow()
+    else:
+      self._dt_utc = datetime.datetime.utcfromtimestamp(ts_utc)
 
   def get_timestamp_usec_utc(self):
     return calendar.timegm( self._dt_utc.utctimetuple() ) + self._dt_utc.microsecond * 0.000001
