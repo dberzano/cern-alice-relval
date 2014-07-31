@@ -199,12 +199,18 @@ def main(argv):
 
   # what to do
   if action == 'list-packages':
-    list_packages(cfg['packbaseurl'], extended)
+    s = list_packages(cfg['packbaseurl'], extended)
   elif action == 'list-known-packages':
-    list_packages(cfg['packbaseurl'], extended, cached=True, valstatus=valstatus)
+    s = list_packages(cfg['packbaseurl'], extended, cached=True, valstatus=valstatus)
   elif action == 'list-validations':
-    list_validations(valstatus)
+    s = list_validations(valstatus)
   elif action == 'queue-validation':
-    queue_validation(valstatus, cfg['packbaseurl'], tarball)
+    s = queue_validation(valstatus, cfg['packbaseurl'], tarball)
+  else:
+    log.error('wrong action')
+    return 1
 
-  return 0
+  if s:
+    return 0
+
+  return 1
