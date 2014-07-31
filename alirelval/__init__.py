@@ -123,10 +123,14 @@ def list_packages(baseurl, extended, cached=False, valstatus=None):
       tab.align[k] = 'l'
     tab.padding_width = 1
     for p in packs:
+      if p.deps is None:
+        deps = '<none>'
+      else:
+        deps = ', '.join(p.deps)
       tab.add_row([
         p.get_package_name(),
         p.arch,
-        p.get_url()
+        deps
       ])
     print tab
 
@@ -146,7 +150,7 @@ def queue_validation(valstatus, baseurl, tarball):
     log.error('package from tarball %s not found!' % tarball)
     return False
   else:
-    #print pack
+    print pack
     # queue validation
     if valstatus.add_validation(pack):
       log.info('queued validation of %s' % pack.tarball)
