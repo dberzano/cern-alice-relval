@@ -10,7 +10,7 @@ from alipack import AliPack, AliPackError
 from valstatus import ValStatus
 import logging, logging.handlers
 import ConfigParser
-from getopt import getopt, GetoptError
+from getopt import gnu_getopt, GetoptError
 import sqlite3
 
 
@@ -155,7 +155,7 @@ def main(argv):
   extended = False
 
   try:
-    opts, remainder = getopt(argv, 'a:bc', [ 'debug', 'tarball=', 'extended' ])
+    opts, remainder = gnu_getopt(argv, 'a:bc', [ 'debug', 'tarball=', 'extended' ])
     for o, a in opts:
       if o == '--debug':
         debug = True
