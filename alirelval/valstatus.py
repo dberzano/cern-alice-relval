@@ -154,16 +154,16 @@ class Validation:
       started = self.started
       ended = self.ended
       timetaken = ended-started
+    package = str(self.package).replace('\n', '\n   ')
     return \
-      'Validation #%d:\n' \
+      'Validation:\n' \
       ' - Added    : %s\n' \
       ' - Started  : %s\n' \
       ' - Ended    : %s\n' \
       ' - Delta    : %s\n' \
       ' - Status   : %s\n' \
-      ' - PackId   : %d\n' \
-      '%s' \
-      % (self.id, self.inserted, started, ended, timetaken, status, self.package_id, self.package)
+      ' - %s' \
+      % (self.inserted, started, ended, timetaken, status, package)
 
   def _from_dict(self, dictionary, baseurl):
     self.id = dictionary['validation_id']
