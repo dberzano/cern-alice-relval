@@ -19,6 +19,8 @@ def get_available_packages(baseurl):
      the given URL.
   '''
 
+  log = get_logger()
+  log.debug('getting list of available packages from %s/Packages' % baseurl)
   packlist = []
   resp = urllib.urlopen(baseurl+'/Packages')
   for l in resp:
@@ -26,9 +28,9 @@ def get_available_packages(baseurl):
       packdef = AliPack(rawstring=l, baseurl=baseurl)
       packlist.append(packdef)
     except AliPackError as e:
-      print 'skipping one package: %s' % e
+      log.warning('quietly skipping unparsable package definition: %s' % e)
       pass
-
+  log.debug('created list of %d package(s)' % len(packlist))
   return packlist
 
 
