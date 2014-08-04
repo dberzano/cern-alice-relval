@@ -14,15 +14,17 @@ from getopt import gnu_getopt, GetoptError
 import sqlite3
 
 
-def get_available_packages(baseurl):
+def get_available_packages(baseurl, listpath='/Packages'):
   '''Returns a list of available packages in AliEn. The list is obtained from
      the given URL.
   '''
 
   log = get_logger()
-  log.debug('getting list of available packages from %s/Packages' % baseurl)
+  log.debug('getting list of available packages from %s%s' % (baseurl, listpath))
   packlist = []
-  resp = urllib.urlopen(baseurl+'/Packages')
+  resp = urllib.urlopen(baseurl+listpath)
+  if resp.getcode() != 200:
+    raise IOError('code %d while reading %s%s' % (resp.getcode(), baseurl, listpath))
   for l in resp:
     try:
       packdef = AliPack(rawstring=l, baseurl=baseurl)
@@ -106,13 +108,21 @@ def init_config(config_file):
 
   return config_vars
 
-
-def list_packages(baseurl, extended, cached=False, valstatus=None):
+list_what = {
+  'CACHED':     0,
+  'VALIDATION': 1,
+  'PUBLISHED':  2
+}
+def list_packages(baseurl, what, extended=False, valstatus=None):
   log = get_logger()
-  if cached:
+  if what == list_what['CACHED']:
     packs = valstatus.get_packages()
-  else:
+  elif what == list_what['PUBLISHED']:
     packs = get_available_packages(baseurl) # IOError
+  elif what == list_what['VALIDATION']:
+    packs = get_available_packages(baseurl, '/Packages-Validation')
+  else:
+    assert False, 'invalid parameter'
   if extended:
     for p in packs:
       print p
@@ -165,6 +175,12 @@ def list_validations(valstatus):
   return True
 
 
+def start_queued_validations(valstatus, baseurl):
+  log = get_logger()
+  log.debug('ok')
+  return True
+
+
 def main(argv):
 
   init_logger(log_directory=None, debug=False)
@@ -175,7 +191,7 @@ def main(argv):
   extended = False
 
   try:
-    opts, remainder = gnu_getopt(argv, 'a:bc', [ 'debug', 'tarball=', 'extended' ])
+    opts, remainder = gnu_getopt(argv, '', [ 'debug', 'tarball=', 'extended' ])
     for o, a in opts:
       if o == '--debug':
         debug = True
@@ -203,14 +219,18 @@ def main(argv):
   valstatus = ValStatus(dbpath=cfg['dbpath'], baseurl=cfg['packbaseurl'])
 
   # what to do
-  if action == 'list-packages':
-    s = list_packages(cfg['packbaseurl'], extended)
+  if action == 'list-pub-packages':
+    s = list_packages(cfg['packbaseurl'], what=list_what['PUBLISHED'], extended=extended)
+  if action == 'list-val-packages':
+    s = list_packages(cfg['packbaseurl'], what=list_what['VALIDATION'], extended=extended)
   elif action == 'list-known-packages':
-    s = list_packages(cfg['packbaseurl'], extended, cached=True, valstatus=valstatus)
+    s = list_packages(cfg['packbaseurl'], what=list_what['CACHED'], extended=extended, valstatus=valstatus)
   elif action == 'list-validations':
     s = list_validations(valstatus)
   elif action == 'queue-validation':
     s = queue_validation(valstatus, cfg['packbaseurl'], tarball)
+  elif action == 'start-queued-validations':
+    s = start_queued_validations(valstatus, cfg['packbaseurl'])
   else:
     log.error('wrong action')
     return 1
