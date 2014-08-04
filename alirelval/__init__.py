@@ -127,7 +127,7 @@ def list_packages(baseurl, what, extended=False, valstatus=None):
     for p in packs:
       print p
   else:
-    tab = PrettyTable( [ 'Package', 'Arch', 'URL' ] )
+    tab = PrettyTable( [ 'Package', 'Platform', 'Arch', 'URL' ] )
     for k in tab.align.keys():
       tab.align[k] = 'l'
     tab.padding_width = 1
@@ -138,6 +138,7 @@ def list_packages(baseurl, what, extended=False, valstatus=None):
         deps = ', '.join(p.deps)
       tab.add_row([
         p.get_package_name(),
+        p.platform,
         p.arch,
         deps
       ])

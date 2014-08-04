@@ -4,6 +4,7 @@ class AliPack:
       - tarball  : package file name (e.g. aliroot-blahblah.tar.gz) - not None
       - software : software's name (e.g. AliRoot) - not None
       - version  : version (e.g. vAN-12345) - not None
+      - platform : operating system (e.g. Linux) - may be None
       - arch     : architecture (e.g. Linux-x86_64-2.6-gnu-4.1.2) - may be None
       - org      : virtual organization (e.g. VO_ALICE) not None
       - deps     : array of package deps - may be None (but not empty)
@@ -22,6 +23,10 @@ class AliPack:
       deps = '<no deps>'
     else:
       deps = ', '.join(self.deps)
+    if self.platform is None:
+      platform = '<no platform>'
+    else:
+      platform = self.platform
     if self.arch is None:
       arch = '<no arch>'
     else:
@@ -31,11 +36,12 @@ class AliPack:
       ' - URL      : %s\n' \
       ' - Software : %s\n' \
       ' - Version  : %s\n' \
+      ' - Platform : %s\n' \
       ' - Arch     : %s\n' \
       ' - Org      : %s\n' \
       ' - Deps     : %s' \
       % (self.get_package_name(), self.get_url(), self.software, \
-         self.version, arch, self.org, deps)
+         self.version, platform, arch, self.org, deps)
 
   def get_package_name(self):
     return '%s@%s::%s' % (self.org, self.software, self.version)
@@ -50,6 +56,7 @@ class AliPack:
     self.tarball  = dictionary['tarball']
     self.software = dictionary['software']
     self.version  = dictionary['version']
+    self.platform = dictionary['platform']
     self.arch     = dictionary['arch']
     self.org      = dictionary['org']
 
@@ -82,13 +89,22 @@ class AliPack:
       if self.get_package_name() != a[4]:
         raise AliPackError('inconsistency in package name: %s' % rawstring)
 
-      i1 = a[0].find( a[3] )  # a[3] == platform
-      i2 = a[0].find( '.tar' )
-
-      if i2 > i1:
-        self.arch = a[0][i1:i2]
+      # check if a[3] ("platform") is in the form <os>-<cpu>
+      i3 = a[3].find('-')
+      if i3 > 0:
+        i1 = a[0].find( a[3] )
+        if i1 >= 0:
+          i1 += i3 + 1
+        i2 = a[0].find( '.tar' )
+        if i2 > i1:
+          self.arch = a[0][i1:i2]
+          self.platform = a[3][0:i3]
+        else:
+          self.arch = None
+          self.platform = None
       else:
         self.arch = None
+        self.platform = None
 
       self._baseurl = baseurl
 

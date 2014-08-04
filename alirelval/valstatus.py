@@ -35,7 +35,8 @@ class ValStatus:
         software   TEXT NOT NULL,
         org        TEXT NOT NULL,
         version    TEXT NOT NULL,
-        arch       TEXT NOT NULL,
+        platform   TEXT,
+        arch       TEXT,
         deps       TEXT
       )
     ''')
@@ -104,10 +105,10 @@ class ValStatus:
   def _add_package_cache(self, pack):
     cursor = self._db.cursor()
     cursor.execute('''
-      INSERT INTO package(tarball,software,version,arch,org,deps)
-      VALUES(?,?,?,?,?,?)
+      INSERT INTO package(tarball,software,version,platform,arch,org,deps)
+      VALUES(?,?,?,?,?,?,?)
     ''',
-    (pack.tarball, pack.software, pack.version, pack.arch, pack.org, ','.join(pack.deps)))
+    (pack.tarball, pack.software, pack.version, pack.platform, pack.arch, pack.org, ','.join(pack.deps)))
     self._db.commit()
     self._log.debug('package %s inserted successfully with id %d' % (pack.get_package_name(), cursor.lastrowid))
     return cursor.lastrowid
