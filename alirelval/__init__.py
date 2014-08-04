@@ -12,6 +12,8 @@ import logging, logging.handlers
 import ConfigParser
 from getopt import gnu_getopt, GetoptError
 import sqlite3
+import string
+import subprocess
 
 
 def get_available_packages(baseurl, listpath='/Packages'):
@@ -81,11 +83,14 @@ def init_config(config_file):
   config_vars = {
     'logdir': ['path', '~/.alirelval/log'],
     'dbpath': ['path', '~/.alirelval/status.sqlite'],
-    'packbaseurl': ['str', 'http://pcalienbuild4.cern.ch:8889/tarballs']
+    'packbaseurl': ['str', 'http://pcalienbuild4.cern.ch:8889/tarballs'],
+    'unpackdir': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Packages/AliRoot'],
+    'modulefile': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Modules/modulefiles/AliRoot/$VERSION']
   }
 
   for c in config_vars.keys():
     vartype = config_vars[c][0]
+    default = False
     try:
       if vartype == 'str' or vartype == 'path':
         config_vars[c] = parser.get(sec, c)
@@ -186,9 +191,29 @@ def list_validations(valstatus, what):
   return True
 
 
-def start_queued_validations(valstatus, baseurl):
+def start_queued_validations(valstatus, baseurl, unpackdir, modulefile):
   log = get_logger()
-  log.debug('noop')
+  for v in valstatus.get_queued_validations():
+
+    varsubst = {
+        'ARCH': v.package.arch,
+        'VERSION': v.package.version
+    }
+
+    destdir = string.Template(unpackdir).safe_substitute(varsubst)
+    cmd = 'curl -L %s | tar -C %s -xzvvf -' % (v.package.get_url(), destdir)
+
+    log.debug('executing fetch+untar command (noop): %s' % cmd)
+
+    # sp = subprocess.Popen(cmd, shell=True)
+    # rc = sp.wait()
+    # if rc != 0:
+    #   raise OSError('command "%s" had nonzero (%d) exit status' % (cmd, rc))
+
+    destmod = string.Template(modulefile).safe_substitute(varsubst)
+    log.debug('preparing module file %s' % destmod)
+
+    break # debug
   return True
 
 
@@ -243,7 +268,7 @@ def main(argv):
   elif action == 'queue-validation':
     s = queue_validation(valstatus, cfg['packbaseurl'], tarball)
   elif action == 'start-queued-validations':
-    s = start_queued_validations(valstatus, cfg['packbaseurl'])
+    s = start_queued_validations(valstatus, cfg['packbaseurl'], cfg['unpackdir'], cfg['modulefile'])
   else:
     log.error('wrong action')
     return 1
