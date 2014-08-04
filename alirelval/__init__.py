@@ -197,7 +197,8 @@ def start_queued_validations(valstatus, baseurl, unpackdir, modulefile):
 
     varsubst = {
         'ARCH': v.package.arch,
-        'VERSION': v.package.version
+        'VERSION': v.package.version,
+        'MODULEFILE_DEPS': ' '.join(v.package.deps).replace(v.package.org+'@', '').replace('::', '/')
     }
 
     destdir = string.Template(unpackdir).safe_substitute(varsubst)
@@ -205,13 +206,31 @@ def start_queued_validations(valstatus, baseurl, unpackdir, modulefile):
 
     log.debug('executing fetch+untar command (noop): %s' % cmd)
 
-    # sp = subprocess.Popen(cmd, shell=True)
-    # rc = sp.wait()
-    # if rc != 0:
-    #   raise OSError('command "%s" had nonzero (%d) exit status' % (cmd, rc))
+    sp = subprocess.Popen(cmd, shell=True)
+    rc = sp.wait()
+    if rc != 0:
+      raise OSError('command "%s" had nonzero (%d) exit status' % (cmd, rc))
 
     destmod = string.Template(modulefile).safe_substitute(varsubst)
     log.debug('preparing module file %s' % destmod)
+    destmodcontent = string.Template('''#%Module1.0
+proc ModulesHelp { } {
+  global version
+  puts stderr "This module is for an AliRoot version to be validated."
+}
+set version $VERSION
+module-whatis "AliRoot version to be validated"
+module load BASE/1.0 $MODULEFILE_DEPS
+setenv ALIROOT_VERSION $version
+setenv ALICE $::env(BASEDIR)/AliRoot
+setenv ALIROOT_RELEASE $::env(ALIROOT_VERSION)
+setenv ALICE_ROOT $::env(BASEDIR)/AliRoot/$::env(ALIROOT_RELEASE)
+prepend-path PATH $::env(ALICE_ROOT)/bin/tgt_$::env(ALICE_TARGET_EXT)
+prepend-path LD_LIBRARY_PATH $::env(ALICE_ROOT)/lib/tgt_$::env(ALICE_TARGET_EXT)
+''').safe_substitute(varsubst)
+
+    with open(destmod, 'w') as f:
+      f.write(destmodcontent)
 
     break # debug
   return True
