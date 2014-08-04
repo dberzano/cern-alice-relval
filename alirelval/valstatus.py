@@ -86,7 +86,16 @@ class ValStatus:
 
   def get_validations(self):
     cursor = self._db.cursor()
-    cursor.execute('SELECT * FROM validation JOIN package ON package.package_id=validation.package_id')
+    cursor.execute('SELECT * FROM validation JOIN package ON package.package_id=validation.package_id ORDER BY inserted ASC')
+    vals = []
+    for r in cursor:
+      vals.append( Validation(dictionary=r, baseurl=self._baseurl) )
+    return vals
+
+  def get_queued_validations(self):
+    cursor = self._db.cursor()
+    status = self.status['NOT_RUNNING']
+    cursor.execute('SELECT * FROM validation JOIN package ON package.package_id=validation.package_id WHERE status = ? ORDER BY inserted ASC', (status,))
     vals = []
     for r in cursor:
       vals.append( Validation(dictionary=r, baseurl=self._baseurl) )

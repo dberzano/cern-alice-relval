@@ -108,7 +108,7 @@ def init_config(config_file):
 
   return config_vars
 
-list_what = {
+what_pack = {
   'CACHED':     0,
   'VALIDATION': 1,
   'PUBLISHED':  2
@@ -169,15 +169,25 @@ def queue_validation(valstatus, baseurl, tarball):
     return True
 
 
-def list_validations(valstatus):
-  for v in valstatus.get_validations():
+what_val = {
+  'ALL': 0,
+  'QUEUED': 1
+}
+def list_validations(valstatus, what):
+  if what == what_val['ALL']:
+    vals = valstatus.get_validations()
+  elif what == what_val['QUEUED']:
+    vals = valstatus.get_queued_validations()
+  else:
+    assert False, 'invalid parameter'
+  for v in vals:
     print v
   return True
 
 
 def start_queued_validations(valstatus, baseurl):
   log = get_logger()
-  log.debug('ok')
+  log.debug('noop')
   return True
 
 
@@ -220,13 +230,15 @@ def main(argv):
 
   # what to do
   if action == 'list-pub-packages':
-    s = list_packages(cfg['packbaseurl'], what=list_what['PUBLISHED'], extended=extended)
+    s = list_packages(cfg['packbaseurl'], what=what_pack['PUBLISHED'], extended=extended)
   if action == 'list-val-packages':
-    s = list_packages(cfg['packbaseurl'], what=list_what['VALIDATION'], extended=extended)
+    s = list_packages(cfg['packbaseurl'], what=what_pack['VALIDATION'], extended=extended)
   elif action == 'list-known-packages':
-    s = list_packages(cfg['packbaseurl'], what=list_what['CACHED'], extended=extended, valstatus=valstatus)
+    s = list_packages(cfg['packbaseurl'], what=what_pack['CACHED'], extended=extended, valstatus=valstatus)
   elif action == 'list-validations':
-    s = list_validations(valstatus)
+    s = list_validations(valstatus, what=what_val['ALL'])
+  elif action == 'list-queued-validations':
+    s = list_validations(valstatus, what=what_val['QUEUED'])
   elif action == 'queue-validation':
     s = queue_validation(valstatus, cfg['packbaseurl'], tarball)
   elif action == 'start-queued-validations':
