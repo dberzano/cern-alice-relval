@@ -115,12 +115,12 @@ what_pack = {
 }
 def list_packages(baseurl, what, extended=False, valstatus=None):
   log = get_logger()
-  if what == list_what['CACHED']:
+  if what == what_pack['CACHED']:
     packs = valstatus.get_packages()
-  elif what == list_what['PUBLISHED']:
+  elif what == what_pack['PUBLISHED']:
     packs = get_available_packages(baseurl) # IOError
-  elif what == list_what['VALIDATION']:
-    packs = get_available_packages(baseurl, '/Packages-Validation')
+  elif what == what_pack['VALIDATION']:
+    packs = get_available_packages(baseurl, '/Packages-Validation') # IOError
   else:
     assert False, 'invalid parameter'
   if extended:
@@ -231,7 +231,7 @@ def main(argv):
   # what to do
   if action == 'list-pub-packages':
     s = list_packages(cfg['packbaseurl'], what=what_pack['PUBLISHED'], extended=extended)
-  if action == 'list-val-packages':
+  elif action == 'list-val-packages':
     s = list_packages(cfg['packbaseurl'], what=what_pack['VALIDATION'], extended=extended)
   elif action == 'list-known-packages':
     s = list_packages(cfg['packbaseurl'], what=what_pack['CACHED'], extended=extended, valstatus=valstatus)
