@@ -37,7 +37,8 @@ class ValStatus:
         version    TEXT NOT NULL,
         platform   TEXT,
         arch       TEXT,
-        deps       TEXT
+        deps       TEXT,
+        fetched    INT NOT NULL DEFAULT 0
       )
     ''')
     cursor.execute('''
@@ -68,6 +69,7 @@ class ValStatus:
           self._log.debug('found package: %s, inserting into database' % pack.get_package_name())
           packid = self._add_package_cache(pack)
           self._log.debug('package inserted in db with id %d' % packid)
+          pack.id = packid
           break
       if pack is None:
         self._log.debug('package not found')
@@ -156,6 +158,7 @@ class ValStatus:
     else:
       started = val.started.get_timestamp_usec_utc()
       ended = None
+    self._log.debug('updating validation %s' % val.get_session_tag())
     cursor.execute('''
       UPDATE validation SET inserted=?,started=?,ended=?,status=?,package_id=(
         SELECT package_id FROM package WHERE tarball=? LIMIT 1
@@ -164,6 +167,26 @@ class ValStatus:
     self._db.commit()
     if cursor.rowcount == 0:
       raise ValStatusError('cannot update: validation not in database')
+    self._log.debug('validation updated')
+
+  def update_package(self, pack):
+    cursor = self._db.cursor()
+    if pack.fetched:
+      fetched = 1
+    else:
+      fetched = 0
+    self._log.debug('updating package cache for %s' % pack.tarball)
+    cursor.execute('''
+      UPDATE package
+      SET tarball=?,software=?,version=?,platform=?,arch=?,org=?,deps=?,fetched=?
+      WHERE package_id=?
+    ''',
+    (pack.tarball, pack.software, pack.version, pack.platform, pack.arch, pack.org,
+      ','.join(pack.deps), fetched, pack.id))
+    self._db.commit()
+    if cursor.rowcount == 0:
+      raise ValStatusError('cannot update: package not in database')
+    self._log.debug('package cache updated')
 
 
 class ValStatusError(Exception):
@@ -197,13 +220,14 @@ class Validation:
     package = str(self.package).replace('\n', '\n   ')
     return \
       'Validation:\n' \
+      ' - Id       : %d\n' \
       ' - Added    : %s\n' \
       ' - Started  : %s\n' \
       ' - Ended    : %s\n' \
       ' - Delta    : %s\n' \
       ' - Status   : %s\n' \
       ' - %s' \
-      % (self.inserted, started, ended, timetaken, status, package)
+      % (self.id, self.inserted, started, ended, timetaken, status, package)
 
   def _from_dict(self, dictionary, baseurl):
     self.id = dictionary['validation_id']
