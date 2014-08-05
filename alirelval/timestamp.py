@@ -19,6 +19,9 @@ class TimeStamp:
   def get_datetime_naive_utc(self):
     return self._dt_utc
 
+  def get_formatted_str(self, format):
+    return self._dt_utc.strftime(format)
+
   def __str__(self):
     #return self._dt_utc.strftime('%Y-%m-%e %H:%M:%S')
     return str(self._dt_utc)
