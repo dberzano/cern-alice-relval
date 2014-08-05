@@ -15,6 +15,7 @@ import sqlite3
 import string
 import subprocess
 import traceback
+import shutil
 
 
 def get_available_packages(baseurl, listpath='/Packages'):
@@ -85,8 +86,9 @@ def init_config(config_file):
     'logdir': ['path', '~/.alirelval/log'],
     'dbpath': ['path', '~/.alirelval/status.sqlite'],
     'packbaseurl': ['str', 'http://pcalienbuild4.cern.ch:8889/tarballs'],
-    'unpackdir': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Packages/AliRoot'],
-    'modulefile': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Modules/modulefiles/AliRoot/$VERSION']
+    'unpackdir': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Packages/AliRoot/$VERSION'],
+    'modulefile': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Modules/modulefiles/AliRoot/$VERSION'],
+    'unpackcmd': ['str', '/usr/bin/curl -L $URL | /usr/bin/tar --strip-components=1 -C $DESTDIR -xzvvf -']
   }
 
   for c in config_vars.keys():
@@ -201,27 +203,35 @@ def list_validations(valstatus, what):
   return True
 
 
-def start_queued_validations(valstatus, baseurl, unpackdir, modulefile):
+def start_queued_validations(valstatus, baseurl, unpackdir=None, modulefile=None, unpackcmd=None):
   log = get_logger()
+  assert unpackdir is not None and modulefile is not None and unpackcmd is not None, 'invalid parameters'
   for v in valstatus.get_queued_validations():
 
     varsubst = {
         'ARCH': v.package.arch,
         'VERSION': v.package.version,
-        'MODULEFILE_DEPS': ' '.join(v.package.deps).replace(v.package.org+'@', '').replace('::', '/')
+        'MODULEFILE_DEPS': ' '.join(v.package.deps).replace(v.package.org+'@', '').replace('::', '/'),
+        'URL': v.package.get_url()
     }
 
     destdir = string.Template(unpackdir).safe_substitute(varsubst)
-    cmd = 'curl -L %s | tar -C %s -xzvvf -' % (v.package.get_url(), destdir)
-    if not os.path.isdir(destdir):
+    varsubst['DESTDIR'] = destdir
+    if os.path.isdir(destdir):
+      log.debug('not downloading and unpacking: directory %s already exists' % destdir)
+    else:
       os.makedirs(destdir) # OSError
-
-    log.debug('executing fetch+untar command (noop): %s' % cmd)
-
-    sp = subprocess.Popen(cmd, shell=True)
-    rc = sp.wait()
-    if rc != 0:
-      raise OSError('command "%s" had nonzero (%d) exit status' % (cmd, rc))
+      cmd = string.Template(unpackcmd).safe_substitute(varsubst)
+      log.debug('executing fetch+untar command: %s' % cmd)
+      try:
+        sp = subprocess.Popen(cmd, shell=True)
+        rc = sp.wait()
+        if rc != 0:
+          raise OSError('command "%s" had nonzero (%d) exit status' % (cmd, rc))
+      except OSError:
+        log.error('error unpacking: cleaning up %s' % destdir)
+        shutil.rmtree(destdir)
+        raise
 
     destmod = string.Template(modulefile).safe_substitute(varsubst)
     destmoddir = os.path.dirname(destmod)
@@ -304,7 +314,7 @@ def main(argv):
   elif action == 'queue-validation':
     s = queue_validation(valstatus, cfg['packbaseurl'], tarball)
   elif action == 'start-queued-validations':
-    s = start_queued_validations(valstatus, cfg['packbaseurl'], cfg['unpackdir'], cfg['modulefile'])
+    s = start_queued_validations(valstatus, cfg['packbaseurl'], unpackdir=cfg['unpackdir'], modulefile=cfg['modulefile'], unpackcmd=cfg['unpackcmd'])
   else:
     log.error('wrong action')
     return 1
