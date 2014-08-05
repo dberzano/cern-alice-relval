@@ -14,6 +14,7 @@ from getopt import gnu_getopt, GetoptError
 import sqlite3
 import string
 import subprocess
+import traceback
 
 
 def get_available_packages(baseurl, listpath='/Packages'):
@@ -112,6 +113,15 @@ def init_config(config_file):
       log.debug('%s.%s = %s (from file)' % (sec, c, config_vars[c]))
 
   return config_vars
+
+
+def unhandled_exception(type, value, tb):
+  log = get_logger()
+  log.critical('uncaught exception: %s' % str(value))
+  for tbe in traceback.format_tb(tb):
+    for l in tbe.split('\n'):
+      log.critical(l)
+
 
 what_pack = {
   'CACHED':     0,
@@ -246,6 +256,7 @@ def main(argv):
 
   init_logger(log_directory=None, debug=False)
   log = get_logger()
+  sys.excepthook = unhandled_exception
 
   debug = False
   tarball = None
