@@ -199,6 +199,10 @@ class Validation:
     self.package_id = dictionary['package_id']
     self.package = AliPack(baseurl=baseurl, dictionary=dictionary)
 
+  def get_session_tag(self):
+    return '%s-%s-%s-%s-utc' % (self.package.version, self.package.platform,
+      self.package.arch, self.inserted.get_formatted_str('%Y%m%d-%H%M%S'))
+
 
 class ValidationError(Exception):
   pass
