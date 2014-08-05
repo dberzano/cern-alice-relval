@@ -6,7 +6,8 @@ class AliPack:
       - version  : version (e.g. vAN-12345) - not None
       - platform : operating system (e.g. Linux) - may be None
       - arch     : architecture (e.g. Linux-x86_64-2.6-gnu-4.1.2) - may be None
-      - org      : virtual organization (e.g. VO_ALICE) not None
+      - org      : virtual organization (e.g. VO_ALICE) - not None
+      - fetched  : was downloaded successfully - boolean, not None
       - deps     : array of package deps - may be None (but not empty)
   '''
 
@@ -31,17 +32,27 @@ class AliPack:
       arch = '<no arch>'
     else:
       arch = self.arch
+    if self.fetched:
+      fetched = 'yes'
+    else:
+      fetched = 'no'
+    if self.id is None:
+      id = '<no id>'
+    else:
+      id = str(self.id)
     return \
       'Package %s:\n' \
+      ' - Id       : %s\n' \
       ' - URL      : %s\n' \
       ' - Software : %s\n' \
       ' - Version  : %s\n' \
       ' - Platform : %s\n' \
       ' - Arch     : %s\n' \
       ' - Org      : %s\n' \
+      ' - Fetched  : %s\n' \
       ' - Deps     : %s' \
-      % (self.get_package_name(), self.get_url(), self.software, \
-         self.version, platform, arch, self.org, deps)
+      % (self.get_package_name(), id, self.get_url(), self.software, \
+         self.version, platform, arch, self.org, fetched, deps)
 
   def get_package_name(self):
     return '%s@%s::%s' % (self.org, self.software, self.version)
@@ -53,11 +64,13 @@ class AliPack:
     '''Constructs the package definition from a dictionary. May throw a
        KeyError.
     '''
+    self.id       = dictionary['package_id']
     self.tarball  = dictionary['tarball']
     self.software = dictionary['software']
     self.version  = dictionary['version']
     self.platform = dictionary['platform']
     self.arch     = dictionary['arch']
+    self.fetched  = (dictionary['fetched'] != 0)
     self.org      = dictionary['org']
 
     if dictionary['deps'] is not None:
@@ -107,6 +120,8 @@ class AliPack:
         self.platform = None
 
       self._baseurl = baseurl
+      self.fetched = False
+      self.id = None
 
       if len(a) > 5:
         self.deps = a[5].split(',')
