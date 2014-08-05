@@ -128,19 +128,23 @@ def init_config(config_file):
 
 def check_lock(pidfile):
   log = get_logger()
-  try:
-    with open(pidfile, 'r') as pf:
-      pid = int(pf.read())
-    log.debug('pidfile says: %d' % pid)
-    os.kill(pid, 0)
-    log.error('another instance with pid %d is running' % pid)
-    return False
-  except (IOError, ValueError, OSError):
-    with open(pidfile, 'w') as pf:
-      pid = os.getpid()
-      pf.write( str(pid)+'\n' )
-    log.debug('writing current pid %d in pidfile %s' % (pid, pidfile))
-  return True
+  attempts = 10
+  for i in range(1,attempts+1):
+    try:
+      with open(pidfile, 'r') as pf:
+        pid = int(pf.read())
+      log.debug('pidfile says: %d' % pid)
+      os.kill(pid, 0)
+      log.warning('attempt %d of %d: another instance with pid %d is running' % (i, attempts, pid))
+      time.sleep(1)
+    except (IOError, ValueError, OSError):
+      with open(pidfile, 'w') as pf:
+        pid = os.getpid()
+        pf.write( str(pid)+'\n' )
+      log.debug('writing current pid %d in pidfile %s' % (pid, pidfile))
+      return True
+  log.critical('timeout waiting other instance to finish: aborting')
+  return False
 
 
 def unhandled_exception(type, value, tb):
@@ -426,7 +430,13 @@ def main(argv):
     s = refresh_validations(valstatus, statuscmd=cfg['statuscmd'], statusmap=statusmap)
   else:
     log.error('wrong action')
-    return 1
+    s = False
+
+  try:
+    log.debug('removing pidfile %s' % cfg['pidfile'])
+    os.remove(cfg['pidfile'])
+  except OSError:
+    pass
 
   if s:
     return 0
