@@ -16,6 +16,7 @@ import string
 import subprocess
 import traceback
 import shutil
+from timestamp import TimeStamp
 
 
 def get_available_packages(baseurl, listpath='/Packages'):
@@ -88,7 +89,8 @@ def init_config(config_file):
     'packbaseurl': ['str', 'http://pcalienbuild4.cern.ch:8889/tarballs'],
     'unpackdir': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Packages/AliRoot/$VERSION'],
     'modulefile': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Modules/modulefiles/AliRoot/$VERSION'],
-    'unpackcmd': ['str', '/usr/bin/curl -L $URL | /usr/bin/tar --strip-components=1 -C $DESTDIR -xzvvf -']
+    'unpackcmd': ['str', '/usr/bin/curl -L $URL | /usr/bin/tar --strip-components=1 -C $DESTDIR -xzvvf -'],
+    'relvalcmd': ['str', '/bin/false']
   }
 
   for c in config_vars.keys():
@@ -205,20 +207,24 @@ def list_validations(valstatus, what):
   return True
 
 
-def start_oldest_queued_validation(valstatus, baseurl, unpackdir=None, modulefile=None, unpackcmd=None):
+def start_oldest_queued_validation(valstatus, baseurl, unpackdir=None, modulefile=None, unpackcmd=None, relvalcmd=None):
   log = get_logger()
-  assert unpackdir is not None and modulefile is not None and unpackcmd is not None, 'invalid parameters'
+  for p in [unpackdir, modulefile, unpackcmd, relvalcmd]:
+    assert p is not None, 'invalid parameters'
 
   v = valstatus.get_oldest_queued_validation()
   if v is None:
     log.info('no validations queued: nothing to do')
     return True
   else:
+    startedts = TimeStamp()
     varsubst = {
+        'PLATFORM': v.package.platform,
         'ARCH': v.package.arch,
         'VERSION': v.package.version,
         'MODULEFILE_DEPS': ' '.join(v.package.deps).replace(v.package.org+'@', '').replace('::', '/'),
-        'URL': v.package.get_url()
+        'URL': v.package.get_url(),
+        'SESSIONTAG': v.get_session_tag()
     }
 
     destdir = string.Template(unpackdir).safe_substitute(varsubst)
@@ -269,6 +275,18 @@ prepend-path LD_LIBRARY_PATH $::env(ALICE_ROOT)/lib/tgt_$::env(ALICE_TARGET_EXT)
 
     with open(destmod, 'w') as f:
       f.write(destmodcontent)
+    log.info('modulefile %s written' % destmod)
+
+    cmd = string.Template(relvalcmd).safe_substitute(varsubst)
+    log.debug('running validation command: %s' % cmd)
+    sp = subprocess.Popen(cmd, shell=True)
+    rc = sp.wait()
+    if rc != 0:
+      raise OSError('command "%s" had nonzero (%d) exit status' % (cmd, rc))
+
+    v.started = startedts
+    v.status = ValStatus.status['RUNNING']
+    valstatus.update_validation(v)
 
   return True
 
@@ -325,7 +343,7 @@ def main(argv):
   elif action == 'queue-validation':
     s = queue_validation(valstatus, cfg['packbaseurl'], tarball)
   elif action == 'start-oldest-queued-validation':
-    s = start_oldest_queued_validation(valstatus, cfg['packbaseurl'], unpackdir=cfg['unpackdir'], modulefile=cfg['modulefile'], unpackcmd=cfg['unpackcmd'])
+    s = start_oldest_queued_validation(valstatus, cfg['packbaseurl'], unpackdir=cfg['unpackdir'], modulefile=cfg['modulefile'], unpackcmd=cfg['unpackcmd'], relvalcmd=cfg['relvalcmd'])
   else:
     log.error('wrong action')
     return 1
