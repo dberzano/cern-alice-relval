@@ -90,7 +90,12 @@ def init_config(config_file):
     'unpackdir': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Packages/AliRoot/$VERSION'],
     'modulefile': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Modules/modulefiles/AliRoot/$VERSION'],
     'unpackcmd': ['str', '/usr/bin/curl -L $URL | /usr/bin/tar --strip-components=1 -C $DESTDIR -xzvvf -'],
-    'relvalcmd': ['str', '/bin/false']
+    'relvalcmd': ['str', '/bin/false'],
+    'statuscmd': ['str', '/bin/false'],
+    'statuscode_running': ['int', 100],
+    'statuscode_notrunning': ['int', 101],
+    'statuscode_doneok': ['int', 102],
+    'statuscode_donefail': ['int', 103]
   }
 
   for c in config_vars.keys():
@@ -305,6 +310,37 @@ prepend-path LD_LIBRARY_PATH $::env(ALICE_ROOT)/lib/tgt_$::env(ALICE_TARGET_EXT)
   return True
 
 
+def refresh_validations(valstatus, statuscmd=None, statusmap=None):
+  log = get_logger()
+  assert statuscmd is not None and statusmap is not None, 'invalid parameters'
+  for v in valstatus.get_validations(status=ValStatus.status['RUNNING']):
+    varsubst = {
+        'PLATFORM': v.package.platform,
+        'ARCH': v.package.arch,
+        'VERSION': v.package.version,
+        'SESSIONTAG': v.get_session_tag()
+    }
+    cmd = string.Template(statuscmd).safe_substitute(varsubst)
+    log.debug('querying status for %s' % varsubst['SESSIONTAG'])
+    rc = run_command(cmd)
+    status_str = None
+    status_num = None
+    for s in statusmap.keys():
+      if statusmap[s] == rc:
+        status_str = s
+        status_num = ValStatus.status[status_str]
+        break
+    if status_num is None:
+      log.warning('unknown value (%d) returned when checking status of %s: skipping' % (rc,varsubst['SESSIONTAG']))
+    elif status_num == ValStatus.status['RUNNING']:
+      log.debug('status of %s unchanged, still RUNNING' % varsubst['SESSIONTAG'])
+    else:
+      log.info('status of %s: RUNNING -> %s' % (varsubst['SESSIONTAG'], status_str))
+      v.ended = TimeStamp()
+      v.status = status_num
+      valstatus.update_validation(v)
+
+
 def main(argv):
 
   init_logger(log_directory=None, debug=False)
@@ -358,6 +394,14 @@ def main(argv):
     s = queue_validation(valstatus, cfg['packbaseurl'], tarball)
   elif action == 'start-oldest-queued-validation':
     s = start_oldest_queued_validation(valstatus, cfg['packbaseurl'], unpackdir=cfg['unpackdir'], modulefile=cfg['modulefile'], unpackcmd=cfg['unpackcmd'], relvalcmd=cfg['relvalcmd'])
+  elif action == 'refresh-validations':
+    statusmap = {
+      'RUNNING': cfg['statuscode_running'],
+      'NOT_RUNNING': cfg['statuscode_notrunning'],
+      'DONE_OK': cfg['statuscode_doneok'],
+      'DONE_FAIL': cfg['statuscode_donefail']
+    }
+    s = refresh_validations(valstatus, statuscmd=cfg['statuscmd'], statusmap=statusmap)
   else:
     log.error('wrong action')
     return 1
