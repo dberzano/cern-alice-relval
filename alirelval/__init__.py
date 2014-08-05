@@ -203,6 +203,8 @@ def start_queued_validations(valstatus, baseurl, unpackdir, modulefile):
 
     destdir = string.Template(unpackdir).safe_substitute(varsubst)
     cmd = 'curl -L %s | tar -C %s -xzvvf -' % (v.package.get_url(), destdir)
+    if not os.path.isdir(destdir):
+      os.makedirs(destdir) # OSError
 
     log.debug('executing fetch+untar command (noop): %s' % cmd)
 
@@ -212,6 +214,10 @@ def start_queued_validations(valstatus, baseurl, unpackdir, modulefile):
       raise OSError('command "%s" had nonzero (%d) exit status' % (cmd, rc))
 
     destmod = string.Template(modulefile).safe_substitute(varsubst)
+    destmoddir = os.path.dirname(destmod)
+    if not os.path.isdir(destmoddir):
+      os.makedirs(destmoddir) # OSError
+
     log.debug('preparing module file %s' % destmod)
     destmodcontent = string.Template('''#%Module1.0
 proc ModulesHelp { } {
