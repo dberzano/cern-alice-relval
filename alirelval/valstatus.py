@@ -212,7 +212,8 @@ class Validation:
     else:
       started = self.started
       ended = '<not completed>'
-      timetaken = ended
+      timetaken = TimeStamp()-started
+      timetaken = str(timetaken) + ' (so far)'
     package = str(self.package).replace('\n', '\n   ')
     return \
       'Validation:\n' \
