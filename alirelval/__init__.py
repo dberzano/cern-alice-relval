@@ -229,10 +229,12 @@ def start_oldest_queued_validation(valstatus, baseurl, unpackdir=None, modulefil
 
     destdir = string.Template(unpackdir).safe_substitute(varsubst)
     varsubst['DESTDIR'] = destdir
-    if os.path.isdir(destdir):
-      log.info('not downloading and unpacking: directory %s already exists' % destdir)
+    destdirexists = os.path.isdir(destdir)
+    if v.package.fetched and destdirexists:
+      log.info('package already unpacked in %s' % destdir)
     else:
-      os.makedirs(destdir) # OSError
+      if not destdirexists:
+        os.makedirs(destdir) # OSError
       cmd = string.Template(unpackcmd).safe_substitute(varsubst)
       log.debug('executing fetch+untar command: %s' % cmd)
       log.info('downloading and unpacking %s (might take time)' % varsubst['URL'])
@@ -250,6 +252,8 @@ def start_oldest_queued_validation(valstatus, baseurl, unpackdir=None, modulefil
         shutil.rmtree(destdir)
         raise
       log.info('unpacked in %s successfully' % varsubst['DESTDIR'])
+      v.package.fetched = True
+      valstatus.update_package(v.package)
 
     destmod = string.Template(modulefile).safe_substitute(varsubst)
     destmoddir = os.path.dirname(destmod)
@@ -278,7 +282,7 @@ prepend-path LD_LIBRARY_PATH $::env(ALICE_ROOT)/lib/tgt_$::env(ALICE_TARGET_EXT)
     log.info('modulefile %s written' % destmod)
 
     cmd = string.Template(relvalcmd).safe_substitute(varsubst)
-    log.debug('running validation command: %s' % cmd)
+    log.info('running validation command: %s' % cmd)
     sp = subprocess.Popen(cmd, shell=True)
     rc = sp.wait()
     if rc != 0:
