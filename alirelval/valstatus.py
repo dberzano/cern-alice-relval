@@ -145,6 +145,27 @@ class ValStatus:
       self._log.debug('validation for %s queued with id %d' % (pack.tarball,cursor.lastrowid))
       return True
 
+  def update_validation(self, val):
+    cursor = self._db.cursor()
+    if val.started is None:
+      started = None
+      ended = None
+    elif val.ended is not None:
+      started = val.started.get_timestamp_usec_utc()
+      ended = val.ended.get_timestamp_usec_utc()
+    else:
+      started = val.started.get_timestamp_usec_utc()
+      ended = None
+    cursor.execute('''
+      UPDATE validation SET inserted=?,started=?,ended=?,status=?,package_id=(
+        SELECT package_id FROM package WHERE tarball=? LIMIT 1
+      ) WHERE validation_id=?
+    ''', (val.inserted.get_timestamp_usec_utc(), started, ended, val.status, val.package.tarball, val.id))
+    self._db.commit()
+    if cursor.rowcount == 0:
+      raise ValStatusError('cannot update: validation not in database')
+
+
 class ValStatusError(Exception):
   pass
 
