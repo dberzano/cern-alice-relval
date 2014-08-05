@@ -17,6 +17,7 @@ import subprocess
 import traceback
 import shutil
 from timestamp import TimeStamp
+import time
 
 
 def get_available_packages(baseurl, listpath='/Packages'):
@@ -86,6 +87,7 @@ def init_config(config_file):
   config_vars = {
     'logdir': ['path', '~/.alirelval/log'],
     'dbpath': ['path', '~/.alirelval/status.sqlite'],
+    'pidfile': ['path', '~/.alirelval/pid'],
     'packbaseurl': ['str', 'http://pcalienbuild4.cern.ch:8889/tarballs'],
     'unpackdir': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Packages/AliRoot/$VERSION'],
     'modulefile': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Modules/modulefiles/AliRoot/$VERSION'],
@@ -122,6 +124,23 @@ def init_config(config_file):
       log.debug('%s.%s = %s (from file)' % (sec, c, config_vars[c]))
 
   return config_vars
+
+
+def check_lock(pidfile):
+  log = get_logger()
+  try:
+    with open(pidfile, 'r') as pf:
+      pid = int(pf.read())
+    log.debug('pidfile says: %d' % pid)
+    os.kill(pid, 0)
+    log.error('another instance with pid %d is running' % pid)
+    return False
+  except (IOError, ValueError, OSError):
+    with open(pidfile, 'w') as pf:
+      pid = os.getpid()
+      pf.write( str(pid)+'\n' )
+    log.debug('writing current pid %d in pidfile %s' % (pid, pidfile))
+  return True
 
 
 def unhandled_exception(type, value, tb):
@@ -375,6 +394,9 @@ def main(argv):
     init_logger(log_directory=None, debug=True)
   cfg = init_config( os.path.expanduser('~/.alirelval/alirelval.conf') )
   init_logger( log_directory=cfg['logdir'], debug=debug )
+
+  if not check_lock(cfg['pidfile']):
+    return 1
 
   # init the database
   valstatus = ValStatus(dbpath=cfg['dbpath'], baseurl=cfg['packbaseurl'])
