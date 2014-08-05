@@ -120,9 +120,11 @@ def init_config(config_file):
 def unhandled_exception(type, value, tb):
   log = get_logger()
   log.critical('uncaught exception: %s' % str(value))
+  log.critical('traceback (most recent call last):')
   for tbe in traceback.format_tb(tb):
     for l in tbe.split('\n'):
-      log.critical(l)
+      if l != '':
+        log.critical(l)
 
 
 what_pack = {
