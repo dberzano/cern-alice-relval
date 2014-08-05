@@ -418,7 +418,7 @@ def main(argv):
     s = list_validations(valstatus, what=what_val['QUEUED'])
   elif action == 'queue-validation':
     s = queue_validation(valstatus, cfg['packbaseurl'], tarball)
-  elif action == 'start-oldest-queued-validation':
+  elif action == 'start-next-queued-validation':
     s = start_oldest_queued_validation(valstatus, cfg['packbaseurl'], unpackdir=cfg['unpackdir'], modulefile=cfg['modulefile'], unpackcmd=cfg['unpackcmd'], relvalcmd=cfg['relvalcmd'])
   elif action == 'refresh-validations':
     statusmap = {
