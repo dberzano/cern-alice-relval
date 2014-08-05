@@ -220,7 +220,7 @@ def list_validations(valstatus, what):
   if what == what_val['ALL']:
     vals = valstatus.get_validations()
   elif what == what_val['QUEUED']:
-    vals = valstatus.get_queued_validations()
+    vals = valstatus.get_validations(status=ValStatus.status['NOT_RUNNING'])
   else:
     assert False, 'invalid parameter'
   for v in vals:
