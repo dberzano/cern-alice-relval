@@ -129,6 +129,27 @@ def unhandled_exception(type, value, tb):
         log.critical(l)
 
 
+def run_command(cmd, verbose=None, nonzero_raise=False):
+  '''Runs a command. Returns the return code. Silences output according to the
+     current debug level (can be overridden). Can raise exception if cmd
+     returns nonzero.
+  '''
+  log = get_logger()
+  if verbose is None:
+    verbose = log.getEffectiveLevel() <= logging.DEBUG  # note: logging.NOTSET == 0
+  log.debug('executing command: %s' % cmd)
+  if verbose:
+    sp = subprocess.Popen(cmd, shell=True)
+  else:
+    with open(os.devnull) as dev_null:
+     sp = subprocess.Popen(cmd, stderr=dev_null, stdout=dev_null, shell=True)
+  rc = sp.wait()
+  if rc != 0 and nonzero_raise:
+    raise OSError('command "%s" had nonzero (%d) exit status' % (cmd, rc))
+  else:
+    return rc
+
+
 what_pack = {
   'CACHED':     0,
   'VALIDATION': 1,
@@ -236,17 +257,9 @@ def start_oldest_queued_validation(valstatus, baseurl, unpackdir=None, modulefil
       if not destdirexists:
         os.makedirs(destdir) # OSError
       cmd = string.Template(unpackcmd).safe_substitute(varsubst)
-      log.debug('executing fetch+untar command: %s' % cmd)
       log.info('downloading and unpacking %s (might take time)' % varsubst['URL'])
       try:
-        if log.getEffectiveLevel() <= logging.DEBUG:  # note: logging.NOTSET == 0
-          sp = subprocess.Popen(cmd, shell=True)
-        else:
-          with open(os.devnull) as dev_null:
-           sp = subprocess.Popen(cmd, stderr=dev_null, stdout=dev_null, shell=True)
-        rc = sp.wait()
-        if rc != 0:
-          raise OSError('command "%s" had nonzero (%d) exit status' % (cmd, rc))
+        run_command(cmd, nonzero_raise=True)
       except OSError:
         log.error('error unpacking: cleaning up %s' % destdir)
         shutil.rmtree(destdir)
@@ -282,11 +295,8 @@ prepend-path LD_LIBRARY_PATH $::env(ALICE_ROOT)/lib/tgt_$::env(ALICE_TARGET_EXT)
     log.info('modulefile %s written' % destmod)
 
     cmd = string.Template(relvalcmd).safe_substitute(varsubst)
-    log.info('running validation command: %s' % cmd)
-    sp = subprocess.Popen(cmd, shell=True)
-    rc = sp.wait()
-    if rc != 0:
-      raise OSError('command "%s" had nonzero (%d) exit status' % (cmd, rc))
+    log.info('running validation command')
+    run_command(cmd, nonzero_raise=True)
 
     v.started = startedts
     v.status = ValStatus.status['RUNNING']
