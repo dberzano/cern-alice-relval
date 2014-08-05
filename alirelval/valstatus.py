@@ -127,7 +127,7 @@ class ValStatus:
     inserted = TimeStamp()
     status = self.status['NOT_RUNNING']
     cursor.execute('SELECT package_id FROM package WHERE tarball=?', (pack.tarball,))
-    package_id = cursor.fetchone()['package_id']  # NoneType
+    package_id = cursor.fetchone()['package_id']  # ValueError
     self._log.debug('found id %d for %s' % (package_id, pack.tarball))
     # if a validation for that package which is NOT_RUNNING or RUNNING already exists, don't insert
     cursor.execute('''
@@ -167,12 +167,12 @@ class Validation:
       timetaken = started
     elif self.ended is not None:
       started = self.started
-      ended = '<not completed>'
-      timetaken = ended
-    else:
-      started = self.started
       ended = self.ended
       timetaken = ended-started
+    else:
+      started = self.started
+      ended = '<not completed>'
+      timetaken = ended
     package = str(self.package).replace('\n', '\n   ')
     return \
       'Validation:\n' \
