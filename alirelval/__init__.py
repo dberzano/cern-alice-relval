@@ -175,7 +175,6 @@ def queue_validation(valstatus, baseurl, tarball):
   else:
     log.debug('tarball to validate: %s' % tarball)
   # package to validate (cache in sqlite)
-  pack = valstatus.get_cached_pack_from_tarball(tarball, get_available_packages(baseurl))
   pack = valstatus.get_cached_pack_from_tarball(tarball, get_available_packages(baseurl, '/Packages-Validation'))
   if pack is None:
     log.error('package from tarball %s not found!' % tarball)
@@ -206,11 +205,15 @@ def list_validations(valstatus, what):
   return True
 
 
-def start_queued_validations(valstatus, baseurl, unpackdir=None, modulefile=None, unpackcmd=None):
+def start_oldest_queued_validation(valstatus, baseurl, unpackdir=None, modulefile=None, unpackcmd=None):
   log = get_logger()
   assert unpackdir is not None and modulefile is not None and unpackcmd is not None, 'invalid parameters'
-  for v in valstatus.get_queued_validations():
 
+  v = valstatus.get_oldest_queued_validation()
+  if v is None:
+    log.info('no validations queued: nothing to do')
+    return True
+  else:
     varsubst = {
         'ARCH': v.package.arch,
         'VERSION': v.package.version,
@@ -221,13 +224,18 @@ def start_queued_validations(valstatus, baseurl, unpackdir=None, modulefile=None
     destdir = string.Template(unpackdir).safe_substitute(varsubst)
     varsubst['DESTDIR'] = destdir
     if os.path.isdir(destdir):
-      log.debug('not downloading and unpacking: directory %s already exists' % destdir)
+      log.info('not downloading and unpacking: directory %s already exists' % destdir)
     else:
       os.makedirs(destdir) # OSError
       cmd = string.Template(unpackcmd).safe_substitute(varsubst)
       log.debug('executing fetch+untar command: %s' % cmd)
+      log.info('downloading and unpacking %s (might take time)' % varsubst['URL'])
       try:
-        sp = subprocess.Popen(cmd, shell=True)
+        if log.getEffectiveLevel() <= logging.DEBUG:  # note: logging.NOTSET == 0
+          sp = subprocess.Popen(cmd, shell=True)
+        else:
+          with open(os.devnull) as dev_null:
+           sp = subprocess.Popen(cmd, stderr=dev_null, stdout=dev_null, shell=True)
         rc = sp.wait()
         if rc != 0:
           raise OSError('command "%s" had nonzero (%d) exit status' % (cmd, rc))
@@ -235,6 +243,7 @@ def start_queued_validations(valstatus, baseurl, unpackdir=None, modulefile=None
         log.error('error unpacking: cleaning up %s' % destdir)
         shutil.rmtree(destdir)
         raise
+      log.info('unpacked in %s successfully' % varsubst['DESTDIR'])
 
     destmod = string.Template(modulefile).safe_substitute(varsubst)
     destmoddir = os.path.dirname(destmod)
@@ -261,7 +270,6 @@ prepend-path LD_LIBRARY_PATH $::env(ALICE_ROOT)/lib/tgt_$::env(ALICE_TARGET_EXT)
     with open(destmod, 'w') as f:
       f.write(destmodcontent)
 
-    break # debug
   return True
 
 
@@ -316,8 +324,8 @@ def main(argv):
     s = list_validations(valstatus, what=what_val['QUEUED'])
   elif action == 'queue-validation':
     s = queue_validation(valstatus, cfg['packbaseurl'], tarball)
-  elif action == 'start-queued-validations':
-    s = start_queued_validations(valstatus, cfg['packbaseurl'], unpackdir=cfg['unpackdir'], modulefile=cfg['modulefile'], unpackcmd=cfg['unpackcmd'])
+  elif action == 'start-oldest-queued-validation':
+    s = start_oldest_queued_validation(valstatus, cfg['packbaseurl'], unpackdir=cfg['unpackdir'], modulefile=cfg['modulefile'], unpackcmd=cfg['unpackcmd'])
   else:
     log.error('wrong action')
     return 1

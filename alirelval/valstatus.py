@@ -102,6 +102,15 @@ class ValStatus:
       vals.append( Validation(dictionary=r, baseurl=self._baseurl) )
     return vals
 
+  def get_oldest_queued_validation(self):
+    cursor = self._db.cursor()
+    status = self.status['NOT_RUNNING']
+    cursor.execute('SELECT * FROM validation JOIN package ON package.package_id=validation.package_id WHERE status = ? ORDER BY inserted ASC LIMIT 1', (status,))
+    r = cursor.fetchone()
+    if r is None:
+      return None
+    return Validation(dictionary=r, baseurl=self._baseurl)
+
   def _add_package_cache(self, pack):
     cursor = self._db.cursor()
     cursor.execute('''
