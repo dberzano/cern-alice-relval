@@ -227,7 +227,7 @@ def list_packages(baseurl, what, extended=False, valstatus=None):
   return True
 
 
-def queue_validation(valstatus, baseurl, tarball):
+def queue_validation(valstatus, baseurl, tarball, dryrun=False):
   log = get_logger()
   if tarball is None:
     log.debug('tarball not provided, waiting on stdin (terminate with EOF)...')
@@ -244,10 +244,13 @@ def queue_validation(valstatus, baseurl, tarball):
   else:
     print pack
     # queue validation
-    if valstatus.add_validation(pack):
-      log.info('queued validation of %s' % pack.tarball)
+    if dryrun:
+      log.info('DRY RUN: not queuing validation of %s' % pack.tarball)
     else:
-      log.warning('validation of %s already queued' % pack.tarball)
+      if valstatus.add_validation(pack):
+        log.info('queued validation of %s' % pack.tarball)
+      else:
+        log.warning('validation of %s already queued' % pack.tarball)
     return True
 
 
@@ -267,7 +270,7 @@ def list_validations(valstatus, what):
   return True
 
 
-def start_oldest_queued_validation(valstatus, baseurl, unpackdir=None, modulefile=None, unpackcmd=None, relvalcmd=None, mail=None):
+def start_next_queued_validation(valstatus, baseurl, unpackdir=None, modulefile=None, unpackcmd=None, relvalcmd=None, mail=None, dryrun=False):
   log = get_logger()
   for p in [unpackdir, modulefile, unpackcmd, relvalcmd, mail]:
     assert p is not None, 'invalid parameters'
@@ -297,19 +300,23 @@ def start_oldest_queued_validation(valstatus, baseurl, unpackdir=None, modulefil
         os.makedirs(destdir) # OSError
       cmd = string.Template(unpackcmd).safe_substitute(varsubst)
       log.info('downloading and unpacking %s (might take time)' % varsubst['URL'])
-      try:
-        run_command(cmd, nonzero_raise=True)
-      except OSError:
-        log.error('error unpacking: cleaning up %s' % destdir)
-        shutil.rmtree(destdir)
-        raise
-      log.info('unpacked in %s successfully' % varsubst['DESTDIR'])
-      v.package.fetched = True
-      valstatus.update_package(v.package)
+      if dryrun:
+        log.info('DRY RUN: not running command %s' % cmd)
+        v.package.fetched = True
+      else:
+        try:
+          run_command(cmd, nonzero_raise=True)
+        except OSError:
+          log.error('error unpacking: cleaning up %s' % destdir)
+          shutil.rmtree(destdir)
+          raise
+        log.info('unpacked in %s successfully' % varsubst['DESTDIR'])
+        v.package.fetched = True
+        valstatus.update_package(v.package)
 
     destmod = string.Template(modulefile).safe_substitute(varsubst)
     destmoddir = os.path.dirname(destmod)
-    if not os.path.isdir(destmoddir):
+    if not dryrun and not os.path.isdir(destmoddir):
       os.makedirs(destmoddir) # OSError
 
     log.debug('preparing module file %s' % destmod)
@@ -329,17 +336,26 @@ prepend-path PATH $::env(ALICE_ROOT)/bin/tgt_$::env(ALICE_TARGET_EXT)
 prepend-path LD_LIBRARY_PATH $::env(ALICE_ROOT)/lib/tgt_$::env(ALICE_TARGET_EXT)
 ''').safe_substitute(varsubst)
 
-    with open(destmod, 'w') as f:
-      f.write(destmodcontent)
-    log.info('modulefile %s written' % destmod)
+    if not dryrun:
+      with open(destmod, 'w') as f:
+        f.write(destmodcontent)
+      log.info('modulefile %s written' % destmod)
+    else:
+      log.info('DRY RUN: not writing modulefile, outputting it on screen')
+    print destmodcontent
 
     cmd = string.Template(relvalcmd).safe_substitute(varsubst)
-    log.info('running validation command')
-    run_command(cmd, nonzero_raise=True)
+    if not dryrun:
+      log.info('running validation command')
+      run_command(cmd, nonzero_raise=True)
+    else:
+      log.info('DRY RUN: not running validation command')
 
     v.started = startedts
     v.status = ValStatus.status['RUNNING']
-    valstatus.update_validation(v)
+    if not dryrun:
+      valstatus.update_validation(v)
+
     varsubst['VALIDATION_STR'] = str(v)
     send_mail(
       host=mail['host'],
@@ -353,7 +369,7 @@ prepend-path LD_LIBRARY_PATH $::env(ALICE_ROOT)/lib/tgt_$::env(ALICE_TARGET_EXT)
   return True
 
 
-def refresh_validations(valstatus, statuscmd=None, statusmap=None, resultsurl=None, mail=None):
+def refresh_validations(valstatus, statuscmd=None, statusmap=None, resultsurl=None, mail=None, dryrun=False):
   log = get_logger()
   for p in [statuscmd, statusmap, resultsurl, mail]:
     assert p is not None, 'invalid parameters'
@@ -381,7 +397,11 @@ def refresh_validations(valstatus, statuscmd=None, statusmap=None, resultsurl=No
       log.info('status of %s: RUNNING -> %s' % (varsubst['SESSIONTAG'], status_str))
       v.ended = TimeStamp()
       v.status = status_num
-      valstatus.update_validation(v)
+      if not dryrun:
+        valstatus.update_validation(v)
+      else:
+        log.info('DRY RUN: not updating validation status')
+
       if status_num == ValStatus.status['DONE_OK']:
         varsubst['STATUS_STR'] = 'OK'
       else:
@@ -436,9 +456,10 @@ def main(argv):
   debug = False
   tarball = None
   extended = False
+  dryrun = False
 
   try:
-    opts, remainder = gnu_getopt(argv, '', [ 'debug', 'tarball=', 'extended' ])
+    opts, remainder = gnu_getopt(argv, '', [ 'debug', 'tarball=', 'extended', 'dryrun' ])
     for o, a in opts:
       if o == '--debug':
         debug = True
@@ -446,6 +467,8 @@ def main(argv):
         tarball = a
       elif o == '--extended':
         extended = True
+      elif o == '--dryrun':
+        dryrun = True
   except GetoptError as e:
     log.error('error parsing options: %s' % e)
     return 1
@@ -480,9 +503,9 @@ def main(argv):
   elif action == 'list-queued-validations':
     s = list_validations(valstatus, what=what_val['QUEUED'])
   elif action == 'queue-validation':
-    s = queue_validation(valstatus, cfg['alirelval']['packbaseurl'], tarball)
+    s = queue_validation(valstatus, cfg['alirelval']['packbaseurl'], tarball, dryrun=dryrun)
   elif action == 'start-next-queued-validation':
-    s = start_oldest_queued_validation(valstatus, cfg['alirelval']['packbaseurl'], unpackdir=cfg['alirelval']['unpackdir'], modulefile=cfg['alirelval']['modulefile'], unpackcmd=cfg['alirelval']['unpackcmd'], relvalcmd=cfg['alirelval']['relvalcmd'], mail=cfg['mail'])
+    s = start_next_queued_validation(valstatus, cfg['alirelval']['packbaseurl'], unpackdir=cfg['alirelval']['unpackdir'], modulefile=cfg['alirelval']['modulefile'], unpackcmd=cfg['alirelval']['unpackcmd'], relvalcmd=cfg['alirelval']['relvalcmd'], mail=cfg['mail'], dryrun=dryrun)
   elif action == 'refresh-validations':
     statusmap = {
       'RUNNING': cfg['alirelval']['statuscode_running'],
@@ -490,7 +513,7 @@ def main(argv):
       'DONE_OK': cfg['alirelval']['statuscode_doneok'],
       'DONE_FAIL': cfg['alirelval']['statuscode_donefail']
     }
-    s = refresh_validations(valstatus, statuscmd=cfg['alirelval']['statuscmd'], statusmap=statusmap, resultsurl=cfg['alirelval']['resultsurl'], mail=cfg['mail'])
+    s = refresh_validations(valstatus, statuscmd=cfg['alirelval']['statuscmd'], statusmap=statusmap, resultsurl=cfg['alirelval']['resultsurl'], mail=cfg['mail'], dryrun=dryrun)
   else:
     log.error('wrong action')
     s = False
