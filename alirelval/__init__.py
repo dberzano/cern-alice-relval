@@ -85,43 +85,46 @@ def init_config(config_file):
 
   # 'key': ['type', default]
   config_vars = {
-    'logdir': ['path', '~/.alirelval/log'],
-    'dbpath': ['path', '~/.alirelval/status.sqlite'],
-    'pidfile': ['path', '~/.alirelval/pid'],
-    'packbaseurl': ['str', 'http://pcalienbuild4.cern.ch:8889/tarballs'],
-    'unpackdir': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Packages/AliRoot/$VERSION'],
-    'modulefile': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Modules/modulefiles/AliRoot/$VERSION'],
-    'unpackcmd': ['str', '/usr/bin/curl -L $URL | /usr/bin/tar --strip-components=1 -C $DESTDIR -xzvvf -'],
-    'relvalcmd': ['str', '/bin/false'],
-    'statuscmd': ['str', '/bin/false'],
-    'statuscode_running': ['int', 100],
-    'statuscode_notrunning': ['int', 101],
-    'statuscode_doneok': ['int', 102],
-    'statuscode_donefail': ['int', 103]
+    'alirelval': {
+      'logdir': ['path', '~/.alirelval/log'],
+      'dbpath': ['path', '~/.alirelval/status.sqlite'],
+      'pidfile': ['path', '~/.alirelval/pid'],
+      'packbaseurl': ['str', 'http://pcalienbuild4.cern.ch:8889/tarballs'],
+      'unpackdir': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Packages/AliRoot/$VERSION'],
+      'modulefile': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Modules/modulefiles/AliRoot/$VERSION'],
+      'unpackcmd': ['str', '/usr/bin/curl -L $URL | /usr/bin/tar --strip-components=1 -C $DESTDIR -xzvvf -'],
+      'relvalcmd': ['str', '/bin/false'],
+      'statuscmd': ['str', '/bin/false'],
+      'statuscode_running': ['int', 100],
+      'statuscode_notrunning': ['int', 101],
+      'statuscode_doneok': ['int', 102],
+      'statuscode_donefail': ['int', 103]
+    },
   }
 
-  for c in config_vars.keys():
-    vartype = config_vars[c][0]
-    default = False
-    try:
-      if vartype == 'str' or vartype == 'path':
-        config_vars[c] = parser.get(sec, c)
-      elif vartype == 'int':
-        config_vars[c] = parser.getint(sec, c)
-      elif vartype == 'float':
-        config_vars[c] = parser.getfloat(sec, c)
-      elif vartype == 'bool':
-        config_vars[c] = parser.getboolean(sec, c)
-    except Exception:
-      config_vars[c] = config_vars[c][1]
-      default = True
+  for sec in config_vars.keys():
+    for c in config_vars[sec].keys():
+      vartype = config_vars[sec][c][0]
+      default = False
+      try:
+        if vartype == 'str' or vartype == 'path':
+          config_vars[sec][c] = parser.get(sec, c)
+        elif vartype == 'int':
+          config_vars[sec][c] = parser.getint(sec, c)
+        elif vartype == 'float':
+          config_vars[sec][c] = parser.getfloat(sec, c)
+        elif vartype == 'bool':
+          config_vars[sec][c] = parser.getboolean(sec, c)
+      except Exception:
+        config_vars[sec][c] = config_vars[sec][c][1]
+        default = True
 
-    if vartype == 'path':
-      config_vars[c] = os.path.expanduser(config_vars[c])
-    if default:
-      log.debug('%s.%s = %s (default)' % (sec, c, config_vars[c]))
-    else:
-      log.debug('%s.%s = %s (from file)' % (sec, c, config_vars[c]))
+      if vartype == 'path':
+        config_vars[sec][c] = os.path.expanduser(config_vars[sec][c])
+      if default:
+        log.debug('%s.%s = %s (default)' % (sec, c, config_vars[sec][c]))
+      else:
+        log.debug('%s.%s = %s (from file)' % (sec, c, config_vars[sec][c]))
 
   return config_vars
 
@@ -397,44 +400,44 @@ def main(argv):
   if debug:
     init_logger(log_directory=None, debug=True)
   cfg = init_config( os.path.expanduser('~/.alirelval/alirelval.conf') )
-  init_logger( log_directory=cfg['logdir'], debug=debug )
+  init_logger( log_directory=cfg['alirelval']['logdir'], debug=debug )
 
-  if not check_lock(cfg['pidfile']):
+  if not check_lock(cfg['alirelval']['pidfile']):
     return 1
 
   # init the database
-  valstatus = ValStatus(dbpath=cfg['dbpath'], baseurl=cfg['packbaseurl'])
+  valstatus = ValStatus(dbpath=cfg['alirelval']['dbpath'], baseurl=cfg['alirelval']['packbaseurl'])
 
   # what to do
   if action == 'list-pub-packages':
-    s = list_packages(cfg['packbaseurl'], what=what_pack['PUBLISHED'], extended=extended)
+    s = list_packages(cfg['alirelval']['packbaseurl'], what=what_pack['PUBLISHED'], extended=extended)
   elif action == 'list-val-packages':
-    s = list_packages(cfg['packbaseurl'], what=what_pack['VALIDATION'], extended=extended)
+    s = list_packages(cfg['alirelval']['packbaseurl'], what=what_pack['VALIDATION'], extended=extended)
   elif action == 'list-known-packages':
-    s = list_packages(cfg['packbaseurl'], what=what_pack['CACHED'], extended=extended, valstatus=valstatus)
+    s = list_packages(cfg['alirelval']['packbaseurl'], what=what_pack['CACHED'], extended=extended, valstatus=valstatus)
   elif action == 'list-validations':
     s = list_validations(valstatus, what=what_val['ALL'])
   elif action == 'list-queued-validations':
     s = list_validations(valstatus, what=what_val['QUEUED'])
   elif action == 'queue-validation':
-    s = queue_validation(valstatus, cfg['packbaseurl'], tarball)
+    s = queue_validation(valstatus, cfg['alirelval']['packbaseurl'], tarball)
   elif action == 'start-next-queued-validation':
-    s = start_oldest_queued_validation(valstatus, cfg['packbaseurl'], unpackdir=cfg['unpackdir'], modulefile=cfg['modulefile'], unpackcmd=cfg['unpackcmd'], relvalcmd=cfg['relvalcmd'])
+    s = start_oldest_queued_validation(valstatus, cfg['alirelval']['packbaseurl'], unpackdir=cfg['alirelval']['unpackdir'], modulefile=cfg['alirelval']['modulefile'], unpackcmd=cfg['alirelval']['unpackcmd'], relvalcmd=cfg['alirelval']['relvalcmd'])
   elif action == 'refresh-validations':
     statusmap = {
-      'RUNNING': cfg['statuscode_running'],
-      'NOT_RUNNING': cfg['statuscode_notrunning'],
-      'DONE_OK': cfg['statuscode_doneok'],
-      'DONE_FAIL': cfg['statuscode_donefail']
+      'RUNNING': cfg['alirelval']['statuscode_running'],
+      'NOT_RUNNING': cfg['alirelval']['statuscode_notrunning'],
+      'DONE_OK': cfg['alirelval']['statuscode_doneok'],
+      'DONE_FAIL': cfg['alirelval']['statuscode_donefail']
     }
-    s = refresh_validations(valstatus, statuscmd=cfg['statuscmd'], statusmap=statusmap)
+    s = refresh_validations(valstatus, statuscmd=cfg['alirelval']['statuscmd'], statusmap=statusmap)
   else:
     log.error('wrong action')
     s = False
 
   try:
-    log.debug('removing pidfile %s' % cfg['pidfile'])
-    os.remove(cfg['pidfile'])
+    log.debug('removing pidfile %s' % cfg['alirelval']['pidfile'])
+    os.remove(cfg['alirelval']['pidfile'])
   except OSError:
     pass
 
