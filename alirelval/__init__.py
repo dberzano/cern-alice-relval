@@ -237,7 +237,9 @@ def queue_validation(valstatus, baseurl, tarball, dryrun=False):
   else:
     log.debug('tarball to validate: %s' % tarball)
   # package to validate (cache in sqlite)
-  pack = valstatus.get_cached_pack_from_tarball(tarball, get_available_packages(baseurl, '/Packages-Validation'))
+  pack = valstatus.get_cached_pack_from_tarball(tarball)
+  if pack is None:
+    pack = valstatus.get_cached_pack_from_tarball(tarball, get_available_packages(baseurl, '/Packages-Validation'))
   if pack is None:
     log.error('package from tarball %s not found!' % tarball)
     return False

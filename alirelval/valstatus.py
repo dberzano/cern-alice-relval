@@ -56,23 +56,27 @@ class ValStatus:
     self._db.commit()
     #self._db.close()
 
-  def get_cached_pack_from_tarball(self, tarball, alipacks):
+  def get_cached_pack_from_tarball(self, tarball, alipacks=None):
     cursor = self._db.cursor()
     cursor.execute('SELECT * FROM package WHERE tarball=? LIMIT 1', (tarball,))
     result = cursor.fetchone()
     if result is None:
-      self._log.debug('could not find package in db: searching in the remote list')
-      pack = None
-      for ap in alipacks:
-        if ap.tarball == tarball:
-          pack = ap
-          self._log.debug('found package: %s, inserting into database' % pack.get_package_name())
-          packid = self._add_package_cache(pack)
-          self._log.debug('package inserted in db with id %d' % packid)
-          pack.id = packid
-          break
-      if pack is None:
-        self._log.debug('package not found')
+      if alipacks is not None:
+        self._log.debug('could not find package in db: searching in the remote list')
+        pack = None
+        for ap in alipacks:
+          if ap.tarball == tarball:
+            pack = ap
+            self._log.debug('found package: %s, inserting into database' % pack.get_package_name())
+            packid = self._add_package_cache(pack)
+            self._log.debug('package inserted in db with id %d' % packid)
+            pack.id = packid
+            break
+        if pack is None:
+          self._log.debug('package not found')
+      else:
+        self._log.debug('package not found in db cache and no external list provided')
+        pack = None
     else:
       packid = result['package_id']
       self._log.debug('package found in db with id %d' % packid)
