@@ -18,6 +18,7 @@ import traceback
 import shutil
 from timestamp import TimeStamp
 import time
+from smtplib import SMTP
 
 
 def get_available_packages(baseurl, listpath='/Packages'):
@@ -90,6 +91,7 @@ def init_config(config_file):
       'dbpath': ['path', '~/.alirelval/status.sqlite'],
       'pidfile': ['path', '~/.alirelval/pid'],
       'packbaseurl': ['str', 'http://pcalienbuild4.cern.ch:8889/tarballs'],
+      'resultsurl': ['str', 'http://localhost/$SESSIONTAG'],
       'unpackdir': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Packages/AliRoot/$VERSION'],
       'modulefile': ['path', '/opt/alice/aliroot/export/arch/$ARCH/Modules/modulefiles/AliRoot/$VERSION'],
       'unpackcmd': ['str', '/usr/bin/curl -L $URL | /usr/bin/tar --strip-components=1 -C $DESTDIR -xzvvf -'],
@@ -100,6 +102,12 @@ def init_config(config_file):
       'statuscode_doneok': ['int', 102],
       'statuscode_donefail': ['int', 103]
     },
+    'mail': {
+      'host': ['str', 'localhost'],
+      'port': ['int', 25],
+      'from': ['str', 'noreply@localhost'],
+      'to': ['str', 'noreply1@localhost,noreply2@localhost']
+    }
   }
 
   for sec in config_vars.keys():
@@ -259,9 +267,9 @@ def list_validations(valstatus, what):
   return True
 
 
-def start_oldest_queued_validation(valstatus, baseurl, unpackdir=None, modulefile=None, unpackcmd=None, relvalcmd=None):
+def start_oldest_queued_validation(valstatus, baseurl, unpackdir=None, modulefile=None, unpackcmd=None, relvalcmd=None, mail=None):
   log = get_logger()
-  for p in [unpackdir, modulefile, unpackcmd, relvalcmd]:
+  for p in [unpackdir, modulefile, unpackcmd, relvalcmd, mail]:
     assert p is not None, 'invalid parameters'
 
   v = valstatus.get_oldest_queued_validation()
@@ -332,13 +340,23 @@ prepend-path LD_LIBRARY_PATH $::env(ALICE_ROOT)/lib/tgt_$::env(ALICE_TARGET_EXT)
     v.started = startedts
     v.status = ValStatus.status['RUNNING']
     valstatus.update_validation(v)
+    varsubst['VALIDATION_STR'] = str(v)
+    send_mail(
+      host=mail['host'],
+      port=mail['port'],
+      sender=mail['from'],
+      to=mail['to'].split(','),
+      subject='[AliRelVal] Validation started: $VERSION',
+      message='The following validation has started:\n\n$VALIDATION_STR',
+      varsubst=varsubst )
 
   return True
 
 
-def refresh_validations(valstatus, statuscmd=None, statusmap=None):
+def refresh_validations(valstatus, statuscmd=None, statusmap=None, resultsurl=None, mail=None):
   log = get_logger()
-  assert statuscmd is not None and statusmap is not None, 'invalid parameters'
+  for p in [statuscmd, statusmap, resultsurl, mail]:
+    assert p is not None, 'invalid parameters'
   for v in valstatus.get_validations(status=ValStatus.status['RUNNING']):
     varsubst = {
         'PLATFORM': v.package.platform,
@@ -346,6 +364,7 @@ def refresh_validations(valstatus, statuscmd=None, statusmap=None):
         'VERSION': v.package.version,
         'SESSIONTAG': v.get_session_tag()
     }
+    varsubst['RESULTS_URL'] = string.Template(resultsurl).safe_substitute(varsubst)
     cmd = string.Template(statuscmd).safe_substitute(varsubst)
     log.debug('querying status for %s' % varsubst['SESSIONTAG'])
     rc = run_command(cmd)
@@ -363,11 +382,49 @@ def refresh_validations(valstatus, statuscmd=None, statusmap=None):
       v.ended = TimeStamp()
       v.status = status_num
       valstatus.update_validation(v)
+      if status_num == ValStatus.status['DONE_OK']:
+        varsubst['STATUS_STR'] = 'OK'
+      else:
+        varsubst['STATUS_STR'] = 'failed'
+      varsubst['VALIDATION_STR'] = str(v)
+      send_mail(
+        host=mail['host'],
+        port=mail['port'],
+        sender=mail['from'],
+        to=mail['to'].split(','),
+        subject='[AliRelVal] Validation $STATUS_STR: $VERSION',
+        message='''Validation for $VERSION: $STATUS_STR.
+
+Find the results here:
+
+  $RESULTS_URL
+
+Validation details:
+
+$VALIDATION_STR''',
+        varsubst=varsubst )
+
     elif status_num == ValStatus.status['NOT_RUNNING']:
       log.error('status of %s appears to be RUNNING -> NOT_RUNNING: something went wrong, skipping')
     if status_num is None:
       log.warning('unknown value (%d) returned when checking status of %s: skipping' % (rc,varsubst['SESSIONTAG']))
   return True
+
+
+def send_mail(host, port, sender, to, subject, message, varsubst={}):
+  log = get_logger()
+  log.debug('sending email')
+  message = '''From: %s
+To: %s
+Subject: %s
+
+%s''' % (sender, ', '.join(to), subject, message)
+  m = string.Template(message).safe_substitute(varsubst)
+  try:
+    mailer = SMTP(host, port)
+    mailer.sendmail(sender, to, m)
+  except Exception as e:
+    log.error('cannot send notification email: %s' % e)
 
 
 def main(argv):
@@ -425,7 +482,7 @@ def main(argv):
   elif action == 'queue-validation':
     s = queue_validation(valstatus, cfg['alirelval']['packbaseurl'], tarball)
   elif action == 'start-next-queued-validation':
-    s = start_oldest_queued_validation(valstatus, cfg['alirelval']['packbaseurl'], unpackdir=cfg['alirelval']['unpackdir'], modulefile=cfg['alirelval']['modulefile'], unpackcmd=cfg['alirelval']['unpackcmd'], relvalcmd=cfg['alirelval']['relvalcmd'])
+    s = start_oldest_queued_validation(valstatus, cfg['alirelval']['packbaseurl'], unpackdir=cfg['alirelval']['unpackdir'], modulefile=cfg['alirelval']['modulefile'], unpackcmd=cfg['alirelval']['unpackcmd'], relvalcmd=cfg['alirelval']['relvalcmd'], mail=cfg['mail'])
   elif action == 'refresh-validations':
     statusmap = {
       'RUNNING': cfg['alirelval']['statuscode_running'],
@@ -433,7 +490,7 @@ def main(argv):
       'DONE_OK': cfg['alirelval']['statuscode_doneok'],
       'DONE_FAIL': cfg['alirelval']['statuscode_donefail']
     }
-    s = refresh_validations(valstatus, statuscmd=cfg['alirelval']['statuscmd'], statusmap=statusmap)
+    s = refresh_validations(valstatus, statuscmd=cfg['alirelval']['statuscmd'], statusmap=statusmap, resultsurl=cfg['alirelval']['resultsurl'], mail=cfg['mail'])
   else:
     log.error('wrong action')
     s = False
