@@ -433,7 +433,7 @@ $VALIDATION_STR''',
 
 def send_mail(host, port, sender, to, subject, message, varsubst={}):
   log = get_logger()
-  log.debug('sending email')
+  log.debug('sending notification email to recipients: %s' % ','.join(to))
   message = '''From: %s
 To: %s
 Subject: %s
@@ -445,6 +445,7 @@ Subject: %s
     mailer.sendmail(sender, to, m)
   except Exception as e:
     log.error('cannot send notification email: %s' % e)
+  log.info('notification email sent')
 
 
 def main(argv):
