@@ -356,15 +356,17 @@ def refresh_validations(valstatus, statuscmd=None, statusmap=None):
         status_str = s
         status_num = ValStatus.status[status_str]
         break
-    if status_num is None:
-      log.warning('unknown value (%d) returned when checking status of %s: skipping' % (rc,varsubst['SESSIONTAG']))
-    elif status_num == ValStatus.status['RUNNING']:
+    if status_num == ValStatus.status['RUNNING']:
       log.debug('status of %s unchanged, still RUNNING' % varsubst['SESSIONTAG'])
-    else:
+    elif status_num == ValStatus.status['DONE_OK'] or status_num == ValStatus.status['DONE_FAIL']:
       log.info('status of %s: RUNNING -> %s' % (varsubst['SESSIONTAG'], status_str))
       v.ended = TimeStamp()
       v.status = status_num
       valstatus.update_validation(v)
+    elif status_num == ValStatus.status['NOT_RUNNING']:
+      log.error('status of %s appears to be RUNNING -> NOT_RUNNING: something went wrong, skipping')
+    if status_num is None:
+      log.warning('unknown value (%d) returned when checking status of %s: skipping' % (rc,varsubst['SESSIONTAG']))
   return True
 
 
