@@ -365,6 +365,7 @@ def refresh_validations(valstatus, statuscmd=None, statusmap=None):
       v.ended = TimeStamp()
       v.status = status_num
       valstatus.update_validation(v)
+  return True
 
 
 def main(argv):
