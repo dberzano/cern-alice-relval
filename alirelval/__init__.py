@@ -69,7 +69,7 @@ def init_logger(log_directory=None, debug=False):
     if not os.path.isdir(log_directory):
       os.makedirs(log_directory, 0755)
 
-    log_file = logging.handlers.RotatingFileHandler(filename, mode='a', maxBytes=1000000, backupCount=30)
+    log_file = logging.handlers.RotatingFileHandler(filename, mode='a', maxBytes=3000000, backupCount=100)
     log_file.setLevel(level)
     log_file.setFormatter( logging.Formatter(format, datefmt) )
     logging.getLogger('').addHandler(log_file)
