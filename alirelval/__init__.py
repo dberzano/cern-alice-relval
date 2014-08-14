@@ -268,19 +268,32 @@ def list_validations(valstatus, what, extended=False):
     tab = PrettyTable( [ 'Software', 'Platform', 'Arch', 'Status', 'Started', 'Ended', 'Duration' ] )
     for k in tab.align.keys():
       tab.align[k] = 'l'
+    tab.align['Duration']='r'
     tab.padding_width = 1
     for v in vals:
       try:
         delta = v.ended - v.started
+        delta = str(delta)
+        idx = delta.rfind('.')
+        if idx > 0:
+          delta = delta[0:idx]
       except Exception:
         delta = '-'
+      if v.started is not None:
+        started = v.started.get_formatted_str(TimeStamp.datefmt.NO_USEC)
+      else:
+        started = '-'
+      if v.ended is not None:
+        ended = v.ended.get_formatted_str(TimeStamp.datefmt.NO_USEC)
+      else:
+        ended = '-'
       tab.add_row([
         v.package.software,
         v.package.platform,
         v.package.arch,
         ValStatus.status.getk(v.status),
-        v.started,
-        v.ended,
+        started,
+        ended,
         delta
       ])
     print tab
