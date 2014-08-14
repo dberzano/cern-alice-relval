@@ -15,7 +15,8 @@ class ValStatus:
     'RUNNING': 0,
     'NOT_RUNNING': 1,
     'DONE_OK': 2,
-    'DONE_FAIL': 3
+    'DONE_FAIL': 3,
+    'DISAPPEARED': 4
   }
 
   def __init__(self, dbpath=None, baseurl=None):

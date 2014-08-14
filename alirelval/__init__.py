@@ -395,8 +395,15 @@ def refresh_validations(valstatus, statuscmd=None, statusmap=None, resultsurl=No
         break
     if status_num == ValStatus.status['RUNNING']:
       log.debug('status of %s unchanged, still RUNNING' % varsubst['SESSIONTAG'])
-    elif status_num == ValStatus.status['DONE_OK'] or status_num == ValStatus.status['DONE_FAIL']:
-      log.info('status of %s: RUNNING -> %s' % (varsubst['SESSIONTAG'], status_str))
+    else:
+
+      if status_num == ValStatus.status['NOT_RUNNING']:
+        status_str = 'DISAPPEARED'
+        status_num = ValStatus.status[status_str]
+        log.error('status of %s appears to be RUNNING -> NOT_RUNNING: something went wrong, marking as DISAPPEARED' % varsubst['SESSIONTAG'])
+      else:
+        log.info('status of %s: RUNNING -> %s' % (varsubst['SESSIONTAG'], status_str))
+
       v.ended = TimeStamp()
       v.status = status_num
       if not dryrun:
@@ -404,10 +411,7 @@ def refresh_validations(valstatus, statuscmd=None, statusmap=None, resultsurl=No
       else:
         log.info('DRY RUN: not updating validation status')
 
-      if status_num == ValStatus.status['DONE_OK']:
-        varsubst['STATUS_STR'] = 'OK'
-      else:
-        varsubst['STATUS_STR'] = 'failed'
+      varsubst['STATUS_STR'] = status_str
       varsubst['VALIDATION_STR'] = str(v)
       send_mail(
         host=mail['host'],
@@ -426,8 +430,6 @@ Validation details:
 $VALIDATION_STR''',
         varsubst=varsubst )
 
-    elif status_num == ValStatus.status['NOT_RUNNING']:
-      log.error('status of %s appears to be RUNNING -> NOT_RUNNING: something went wrong, skipping' % varsubst['SESSIONTAG'])
     if status_num is None:
       log.warning('unknown value (%d) returned when checking status of %s: skipping' % (rc, varsubst['SESSIONTAG']))
   return True
