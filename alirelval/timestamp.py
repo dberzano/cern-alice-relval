@@ -1,4 +1,5 @@
 import calendar, datetime
+from enum import Enum
 
 class TimeStamp:
 
@@ -6,6 +7,12 @@ class TimeStamp:
      timestamp, holds a naive datetime and has methods with crystal clear
      names. Small but sufficient for our purposes.
   '''
+
+  datefmt = Enum({
+    'NO_USEC': '%Y-%m-%d %H:%M:%S',
+    'DATE_ONLY': '%Y-%m-%d',
+    'TIME_ONLY': '%H:%M:%S'
+  })
 
   def __init__(self, ts_utc=None):
     if ts_utc is None:
