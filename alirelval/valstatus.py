@@ -223,13 +223,14 @@ class Validation:
     return \
       'Validation:\n' \
       ' - Id       : %d\n' \
+      ' - Session  : %s\n' \
       ' - Added    : %s\n' \
       ' - Started  : %s\n' \
       ' - Ended    : %s\n' \
       ' - Delta    : %s\n' \
       ' - Status   : %s\n' \
       ' - %s' \
-      % (self.id, self.inserted, started, ended, timetaken, status, package)
+      % (self.id, self.get_session_tag(), self.inserted, started, ended, timetaken, status, package)
 
   def _from_dict(self, dictionary, baseurl):
     self.id = dictionary['validation_id']

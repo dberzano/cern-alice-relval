@@ -254,15 +254,37 @@ def queue_validation(valstatus, baseurl, tarball, dryrun=False):
 
 
 what_val = Enum([ 'ALL', 'QUEUED' ])
-def list_validations(valstatus, what):
+def list_validations(valstatus, what, extended=False):
   if what == what_val.ALL:
     vals = valstatus.get_validations()
   elif what == what_val.QUEUED:
     vals = valstatus.get_validations(status=ValStatus.status.NOT_RUNNING)
   else:
     assert False, 'invalid parameter'
-  for v in vals:
-    print v
+  if extended:
+    for v in vals:
+      print v
+  else:
+    tab = PrettyTable( [ 'Software', 'Platform', 'Arch', 'Status', 'Started', 'Ended', 'Duration' ] )
+    for k in tab.align.keys():
+      tab.align[k] = 'l'
+    tab.padding_width = 1
+    for v in vals:
+      try:
+        delta = v.ended - v.started
+      except Exception:
+        delta = '-'
+      tab.add_row([
+        v.package.software,
+        v.package.platform,
+        v.package.arch,
+        ValStatus.status.getk(v.status),
+        v.started,
+        v.ended,
+        delta
+      ])
+    print tab
+
   return True
 
 
@@ -499,9 +521,9 @@ def main(argv):
   elif action == 'list-known-packages':
     s = list_packages(cfg['alirelval']['packbaseurl'], what=what_pack.CACHED, extended=extended, valstatus=valstatus)
   elif action == 'list-validations':
-    s = list_validations(valstatus, what=what_val.ALL)
+    s = list_validations(valstatus, what=what_val.ALL, extended=extended)
   elif action == 'list-queued-validations':
-    s = list_validations(valstatus, what=what_val.QUEUED)
+    s = list_validations(valstatus, what=what_val.QUEUED, extended=extended)
   elif action == 'queue-validation':
     s = queue_validation(valstatus, cfg['alirelval']['packbaseurl'], tarball, dryrun=dryrun)
   elif action == 'start-next-queued-validation':
