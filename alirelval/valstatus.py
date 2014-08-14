@@ -2,6 +2,8 @@ import sqlite3
 import logging
 from alipack import AliPack, AliPackError
 from timestamp import TimeStamp
+from enum import Enum
+
 
 def sqlite3_dict_factory(cursor, row):
   d = {}
@@ -9,15 +11,16 @@ def sqlite3_dict_factory(cursor, row):
       d[col[0]] = row[idx]
   return d
 
+
 class ValStatus:
 
-  status = {
+  status = Enum({
     'RUNNING': 0,
     'NOT_RUNNING': 1,
     'DONE_OK': 2,
     'DONE_FAIL': 3,
     'DISAPPEARED': 4
-  }
+  })
 
   def __init__(self, dbpath=None, baseurl=None):
     if dbpath is None or baseurl is None:
@@ -107,7 +110,7 @@ class ValStatus:
 
   def get_oldest_queued_validation(self):
     cursor = self._db.cursor()
-    status = self.status['NOT_RUNNING']
+    status = self.status.NOT_RUNNING
     cursor.execute('SELECT * FROM validation JOIN package ON package.package_id=validation.package_id WHERE status = ? ORDER BY inserted ASC LIMIT 1', (status,))
     r = cursor.fetchone()
     if r is None:
@@ -128,7 +131,7 @@ class ValStatus:
   def add_validation(self, pack):
     cursor = self._db.cursor()
     inserted = TimeStamp()
-    status = self.status['NOT_RUNNING']
+    status = self.status.NOT_RUNNING
     cursor.execute('SELECT package_id FROM package WHERE tarball=?', (pack.tarball,))
     package_id = cursor.fetchone()['package_id']  # ValueError
     self._log.debug('found id %d for %s' % (package_id, pack.tarball))
@@ -139,7 +142,7 @@ class ValStatus:
       WHERE NOT EXISTS (
         SELECT 1 FROM validation WHERE package_id=? AND ( status == ? OR status == ? )
       )
-    ''', (inserted.get_timestamp_usec_utc(), status, package_id, package_id, self.status['NOT_RUNNING'], self.status['RUNNING']))
+    ''', (inserted.get_timestamp_usec_utc(), status, package_id, package_id, self.status.NOT_RUNNING, self.status.RUNNING))
     self._db.commit()
     if cursor.lastrowid == 0:
       self._log.debug('validation for %s already queued or in progress' % pack.tarball)
@@ -202,10 +205,7 @@ class Validation:
     self._from_dict(dictionary, baseurl)
 
   def __str__(self):
-    status = '<unknown>'
-    for k in ValStatus.status.keys():
-      if ValStatus.status[k] == self.status:
-        status = k
+    status = ValStatus.status.getk(self.status)
     if self.started is None:
       started = '<not started>'
       ended = started

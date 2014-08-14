@@ -19,6 +19,7 @@ import shutil
 from timestamp import TimeStamp
 import time
 from smtplib import SMTP
+from enum import Enum
 
 
 def get_available_packages(baseurl, listpath='/Packages'):
@@ -264,7 +265,7 @@ def list_validations(valstatus, what):
   if what == what_val['ALL']:
     vals = valstatus.get_validations()
   elif what == what_val['QUEUED']:
-    vals = valstatus.get_validations(status=ValStatus.status['NOT_RUNNING'])
+    vals = valstatus.get_validations(status=ValStatus.status.NOT_RUNNING)
   else:
     assert False, 'invalid parameter'
   for v in vals:
@@ -354,7 +355,7 @@ prepend-path LD_LIBRARY_PATH $::env(ALICE_ROOT)/lib/tgt_$::env(ALICE_TARGET_EXT)
       log.info('DRY RUN: not running validation command')
 
     v.started = startedts
-    v.status = ValStatus.status['RUNNING']
+    v.status = ValStatus.status.RUNNING
     if not dryrun:
       valstatus.update_validation(v)
 
@@ -375,7 +376,7 @@ def refresh_validations(valstatus, statuscmd=None, statusmap=None, resultsurl=No
   log = get_logger()
   for p in [statuscmd, statusmap, resultsurl, mail]:
     assert p is not None, 'invalid parameters'
-  for v in valstatus.get_validations(status=ValStatus.status['RUNNING']):
+  for v in valstatus.get_validations(status=ValStatus.status.RUNNING):
     varsubst = {
         'PLATFORM': v.package.platform,
         'ARCH': v.package.arch,
@@ -386,20 +387,23 @@ def refresh_validations(valstatus, statuscmd=None, statusmap=None, resultsurl=No
     cmd = string.Template(statuscmd).safe_substitute(varsubst)
     log.debug('querying status for %s' % varsubst['SESSIONTAG'])
     rc = run_command(cmd)
-    status_str = None
-    status_num = None
-    for s in statusmap.keys():
-      if statusmap[s] == rc:
-        status_str = s
-        status_num = ValStatus.status[status_str]
-        break
-    if status_num == ValStatus.status['RUNNING']:
+
+    try:
+      # map return code (e.g. 101) to status string (e.g. 'NOT_RUNNING')
+      status_str = statusmap.getk(rc)
+    except Exception:
+      log.warning('unknown value (%d) returned when checking status of %s: skipping' % (rc, varsubst['SESSIONTAG']))
+      continue
+
+    status_num = ValStatus.status.getv(status_str)
+
+    if status_num == ValStatus.status.RUNNING:
       log.debug('status of %s unchanged, still RUNNING' % varsubst['SESSIONTAG'])
     else:
 
-      if status_num == ValStatus.status['NOT_RUNNING']:
+      if status_num == ValStatus.status.NOT_RUNNING:
         status_str = 'DISAPPEARED'
-        status_num = ValStatus.status[status_str]
+        status_num = ValStatus.status.DISAPPEARED
         log.error('status of %s appears to be RUNNING -> NOT_RUNNING: something went wrong, marking as DISAPPEARED' % varsubst['SESSIONTAG'])
       else:
         log.info('status of %s: RUNNING -> %s' % (varsubst['SESSIONTAG'], status_str))
@@ -430,8 +434,6 @@ Validation details:
 $VALIDATION_STR''',
         varsubst=varsubst )
 
-    if status_num is None:
-      log.warning('unknown value (%d) returned when checking status of %s: skipping' % (rc, varsubst['SESSIONTAG']))
   return True
 
 
@@ -512,12 +514,12 @@ def main(argv):
   elif action == 'start-next-queued-validation':
     s = start_next_queued_validation(valstatus, cfg['alirelval']['packbaseurl'], unpackdir=cfg['alirelval']['unpackdir'], modulefile=cfg['alirelval']['modulefile'], unpackcmd=cfg['alirelval']['unpackcmd'], relvalcmd=cfg['alirelval']['relvalcmd'], mail=cfg['mail'], dryrun=dryrun)
   elif action == 'refresh-validations':
-    statusmap = {
+    statusmap = Enum({
       'RUNNING': cfg['alirelval']['statuscode_running'],
       'NOT_RUNNING': cfg['alirelval']['statuscode_notrunning'],
       'DONE_OK': cfg['alirelval']['statuscode_doneok'],
       'DONE_FAIL': cfg['alirelval']['statuscode_donefail']
-    }
+    })
     s = refresh_validations(valstatus, statuscmd=cfg['alirelval']['statuscmd'], statusmap=statusmap, resultsurl=cfg['alirelval']['resultsurl'], mail=cfg['mail'], dryrun=dryrun)
   else:
     log.error('wrong action')
