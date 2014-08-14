@@ -427,9 +427,9 @@ $VALIDATION_STR''',
         varsubst=varsubst )
 
     elif status_num == ValStatus.status['NOT_RUNNING']:
-      log.error('status of %s appears to be RUNNING -> NOT_RUNNING: something went wrong, skipping')
+      log.error('status of %s appears to be RUNNING -> NOT_RUNNING: something went wrong, skipping' % varsubst['SESSIONTAG'])
     if status_num is None:
-      log.warning('unknown value (%d) returned when checking status of %s: skipping' % (rc,varsubst['SESSIONTAG']))
+      log.warning('unknown value (%d) returned when checking status of %s: skipping' % (rc, varsubst['SESSIONTAG']))
   return True
 
 
