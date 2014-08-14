@@ -190,18 +190,14 @@ def run_command(cmd, verbose=None, nonzero_raise=False):
     return rc
 
 
-what_pack = {
-  'CACHED':     0,
-  'VALIDATION': 1,
-  'PUBLISHED':  2
-}
+what_pack = Enum([ 'CACHED', 'VALIDATION', 'PUBLISHED' ])
 def list_packages(baseurl, what, extended=False, valstatus=None):
   log = get_logger()
-  if what == what_pack['CACHED']:
+  if what == what_pack.CACHED:
     packs = valstatus.get_packages()
-  elif what == what_pack['PUBLISHED']:
+  elif what == what_pack.PUBLISHED:
     packs = get_available_packages(baseurl) # IOError
-  elif what == what_pack['VALIDATION']:
+  elif what == what_pack.VALIDATION:
     packs = get_available_packages(baseurl, '/Packages-Validation') # IOError
   else:
     assert False, 'invalid parameter'
@@ -257,14 +253,11 @@ def queue_validation(valstatus, baseurl, tarball, dryrun=False):
     return True
 
 
-what_val = {
-  'ALL': 0,
-  'QUEUED': 1
-}
+what_val = Enum([ 'ALL', 'QUEUED' ])
 def list_validations(valstatus, what):
-  if what == what_val['ALL']:
+  if what == what_val.ALL:
     vals = valstatus.get_validations()
-  elif what == what_val['QUEUED']:
+  elif what == what_val.QUEUED:
     vals = valstatus.get_validations(status=ValStatus.status.NOT_RUNNING)
   else:
     assert False, 'invalid parameter'
@@ -500,15 +493,15 @@ def main(argv):
 
   # what to do
   if action == 'list-pub-packages':
-    s = list_packages(cfg['alirelval']['packbaseurl'], what=what_pack['PUBLISHED'], extended=extended)
+    s = list_packages(cfg['alirelval']['packbaseurl'], what=what_pack.PUBLISHED, extended=extended)
   elif action == 'list-val-packages':
-    s = list_packages(cfg['alirelval']['packbaseurl'], what=what_pack['VALIDATION'], extended=extended)
+    s = list_packages(cfg['alirelval']['packbaseurl'], what=what_pack.VALIDATION, extended=extended)
   elif action == 'list-known-packages':
-    s = list_packages(cfg['alirelval']['packbaseurl'], what=what_pack['CACHED'], extended=extended, valstatus=valstatus)
+    s = list_packages(cfg['alirelval']['packbaseurl'], what=what_pack.CACHED, extended=extended, valstatus=valstatus)
   elif action == 'list-validations':
-    s = list_validations(valstatus, what=what_val['ALL'])
+    s = list_validations(valstatus, what=what_val.ALL)
   elif action == 'list-queued-validations':
-    s = list_validations(valstatus, what=what_val['QUEUED'])
+    s = list_validations(valstatus, what=what_val.QUEUED)
   elif action == 'queue-validation':
     s = queue_validation(valstatus, cfg['alirelval']['packbaseurl'], tarball, dryrun=dryrun)
   elif action == 'start-next-queued-validation':
