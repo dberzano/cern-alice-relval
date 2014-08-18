@@ -190,6 +190,20 @@ def run_command(cmd, verbose=None, nonzero_raise=False):
     return rc
 
 
+def show_help(actions):
+  tab = PrettyTable( [ 'Operation', 'Alternative names' ] )
+  for k in tab.align.keys():
+    tab.align[k] = 'l'
+  tab.padding_width = 1
+  for a in actions:
+    if len(a['aliases']) > 1:
+      tab.add_row([ a['aliases'][0], ', '.join(a['aliases'][1:]) ])
+    else:
+      tab.add_row([ a['aliases'][0], '-' ])
+  print tab
+  return True
+
+
 what_pack = Enum([ 'CACHED', 'VALIDATION', 'PUBLISHED' ])
 def list_packages(baseurl, what, extended=False, valstatus=None):
   log = get_logger()
@@ -510,7 +524,7 @@ def main(argv):
   try:
     action = remainder[0]
   except IndexError:
-    log.error('please specify an action')
+    log.error('please specify an operation, or "help" for a list')
     return 1
 
   # read configuration and re-init logger
@@ -619,9 +633,17 @@ def main(argv):
         'mail': cfg['mail'],
         'dryrun': dryrun
       }
+    },
+
+    # help
+    {
+      'aliases': [ 'help', 'show-help', 'list-actions', 'list-operations' ],
+      'func': show_help,
+      'params': None
     }
 
   ]
+  actions[-1]['params'] = { 'actions': actions }
 
   # find action
   found = False
@@ -633,17 +655,7 @@ def main(argv):
   if found:
     s = a['func']( **a['params'] )
   else:
-    log.error('unknown operation: table of valid operations follows')
-    tab = PrettyTable( [ 'Operation', 'Alternative names' ] )
-    for k in tab.align.keys():
-      tab.align[k] = 'l'
-    tab.padding_width = 1
-    for a in actions:
-      if len(a['aliases']) > 1:
-        tab.add_row([ a['aliases'][0], ', '.join(a['aliases'][1:]) ])
-      else:
-        tab.add_row([ a['aliases'][0], '-' ])
-    print tab
+    log.error('unknown operation: use "help" for a list of valid ones')
     s = False
 
   try:
