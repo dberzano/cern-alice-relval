@@ -20,6 +20,7 @@ from timestamp import TimeStamp
 import time
 from smtplib import SMTP
 from enum import Enum
+import bisect
 
 
 def get_available_packages(baseurl, listpath='/Packages'):
@@ -651,7 +652,7 @@ def main(argv):
   for a in actions:
     for ali in a['aliases']:
       if ali[:l] == action:
-        found.append( ali )
+        found.insert( bisect.bisect_left(found, ali), ali )
         found_action = a
 
   if len(found) == 1:
