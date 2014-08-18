@@ -526,31 +526,125 @@ def main(argv):
   # init the database
   valstatus = ValStatus(dbpath=cfg['alirelval']['dbpath'], baseurl=cfg['alirelval']['packbaseurl'])
 
-  # what to do
-  if action == 'list-pub-packages':
-    s = list_packages(cfg['alirelval']['packbaseurl'], what=what_pack.PUBLISHED, extended=extended)
-  elif action == 'list-val-packages':
-    s = list_packages(cfg['alirelval']['packbaseurl'], what=what_pack.VALIDATION, extended=extended)
-  elif action == 'list-known-packages':
-    s = list_packages(cfg['alirelval']['packbaseurl'], what=what_pack.CACHED, extended=extended, valstatus=valstatus)
-  elif action == 'list-validations':
-    s = list_validations(valstatus, what=what_val.ALL, extended=extended)
-  elif action == 'list-queued-validations':
-    s = list_validations(valstatus, what=what_val.QUEUED, extended=extended)
-  elif action == 'queue-validation':
-    s = queue_validation(valstatus, cfg['alirelval']['packbaseurl'], tarball, dryrun=dryrun)
-  elif action == 'start-next-queued-validation':
-    s = start_next_queued_validation(valstatus, cfg['alirelval']['packbaseurl'], unpackdir=cfg['alirelval']['unpackdir'], modulefile=cfg['alirelval']['modulefile'], unpackcmd=cfg['alirelval']['unpackcmd'], relvalcmd=cfg['alirelval']['relvalcmd'], mail=cfg['mail'], dryrun=dryrun)
-  elif action == 'refresh-validations':
-    statusmap = Enum({
-      'RUNNING': cfg['alirelval']['statuscode_running'],
-      'NOT_RUNNING': cfg['alirelval']['statuscode_notrunning'],
-      'DONE_OK': cfg['alirelval']['statuscode_doneok'],
-      'DONE_FAIL': cfg['alirelval']['statuscode_donefail']
-    })
-    s = refresh_validations(valstatus, statuscmd=cfg['alirelval']['statuscmd'], statusmap=statusmap, resultsurl=cfg['alirelval']['resultsurl'], mail=cfg['mail'], dryrun=dryrun)
+  # actions
+  actions = [
+
+    # packages
+    {
+      'aliases': [ 'list-pub-packages', 'show-pub-packages' ],
+      'func': list_packages,
+      'params': {
+        'baseurl': cfg['alirelval']['packbaseurl'],
+        'what': what_pack.PUBLISHED,
+        'extended': extended
+      }
+    },
+    {
+      'aliases': [ 'list-val-packages', 'show-val-packages' ],
+      'func': list_packages,
+      'params': {
+        'baseurl': cfg['alirelval']['packbaseurl'],
+        'what': what_pack.VALIDATION,
+        'extended': extended
+      }
+    },
+    {
+      'aliases': [ 'list-known-packages', 'show-known-packages', 'list-cached-packages', 'show-cached-packages' ],
+      'func': list_packages,
+      'params': {
+        'baseurl': cfg['alirelval']['packbaseurl'],
+        'what': what_pack.CACHED,
+        'extended': extended,
+        'valstatus': valstatus
+      }
+    },
+
+    # validations
+    {
+      'aliases': [ 'list-validations', 'show-validations' ],
+      'func': list_validations,
+      'params': {
+        'valstatus': valstatus,
+        'what': what_val.ALL,
+        'extended': extended
+      }
+    },
+    {
+      'aliases': [ 'list-queued-validations', 'show-queued-validations' ],
+      'func': list_validations,
+      'params': {
+        'valstatus': valstatus,
+        'what': what_val.QUEUED,
+        'extended': extended
+      }
+    },
+
+    # validation queue
+    {
+      'aliases': [ 'queue-validation', 'add-validation' ],
+      'func': queue_validation,
+      'params': {
+        'valstatus': valstatus,
+        'baseurl': cfg['alirelval']['packbaseurl'],
+        'tarball': tarball,
+        'dryrun': dryrun
+      }
+    },
+    {
+      'aliases': [ 'start-next-queued-validation', 'run-next' ],
+      'func': start_next_queued_validation,
+      'params': {
+        'valstatus': valstatus,
+        'baseurl': cfg['alirelval']['packbaseurl'],
+        'unpackdir': cfg['alirelval']['unpackdir'],
+        'modulefile': cfg['alirelval']['modulefile'],
+        'unpackcmd': cfg['alirelval']['unpackcmd'],
+        'relvalcmd': cfg['alirelval']['relvalcmd'],
+        'mail': cfg['mail'],
+        'dryrun': dryrun
+      }
+    },
+    {
+      'aliases': [ 'refresh-validations', 'update-validations' ],
+      'func': refresh_validations,
+      'params': {
+        'valstatus': valstatus,
+        'statuscmd': cfg['alirelval']['statuscmd'],
+        'statusmap': Enum({
+          'RUNNING': cfg['alirelval']['statuscode_running'],
+          'NOT_RUNNING': cfg['alirelval']['statuscode_notrunning'],
+          'DONE_OK': cfg['alirelval']['statuscode_doneok'],
+          'DONE_FAIL': cfg['alirelval']['statuscode_donefail']
+        }),
+        'resultsurl': cfg['alirelval']['resultsurl'],
+        'mail': cfg['mail'],
+        'dryrun': dryrun
+      }
+    }
+
+  ]
+
+  # find action
+  found = False
+  for a in actions:
+    if action in a['aliases']:
+      found = True
+      break
+
+  if found:
+    s = a['func']( **a['params'] )
   else:
-    log.error('wrong action')
+    log.error('unknown operation: table of valid operations follows')
+    tab = PrettyTable( [ 'Operation', 'Alternative names' ] )
+    for k in tab.align.keys():
+      tab.align[k] = 'l'
+    tab.padding_width = 1
+    for a in actions:
+      if len(a['aliases']) > 1:
+        tab.add_row([ a['aliases'][0], ', '.join(a['aliases'][1:]) ])
+      else:
+        tab.add_row([ a['aliases'][0], '-' ])
+    print tab
     s = False
 
   try:
