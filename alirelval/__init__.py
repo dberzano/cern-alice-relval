@@ -575,7 +575,7 @@ def main(argv):
 
     # validations
     {
-      'aliases': [ 'list-validations', 'show-validations' ],
+      'aliases': [ 'list', 'list-validations', 'show-validations' ],
       'func': list_validations,
       'params': {
         'valstatus': valstatus,
@@ -619,7 +619,7 @@ def main(argv):
       }
     },
     {
-      'aliases': [ 'refresh-validations', 'update-validations' ],
+      'aliases': [ 'update', 'refresh-validations', 'update-validations' ],
       'func': refresh_validations,
       'params': {
         'valstatus': valstatus,
@@ -648,12 +648,20 @@ def main(argv):
 
   # find action
   found = []
+  exact_match = False
   l = len(action)
   for a in actions:
     for ali in a['aliases']:
-      if ali[:l] == action:
+      if ali == action:
+        found = [ ali ]
+        found_action = a
+        exact_match = True
+        break
+      elif ali[:l] == action:
         found.insert( bisect.bisect_left(found, ali), ali )
         found_action = a
+    if exact_match:
+      break
 
   if len(found) == 1:
     s = found_action['func']( **found_action['params'] )
