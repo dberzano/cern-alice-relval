@@ -646,14 +646,19 @@ def main(argv):
   actions[-1]['params'] = { 'actions': actions }
 
   # find action
-  found = False
+  found = []
+  l = len(action)
   for a in actions:
-    if action in a['aliases']:
-      found = True
-      break
+    for ali in a['aliases']:
+      if ali[:l] == action:
+        found.append( ali )
+        found_action = a
 
-  if found:
-    s = a['func']( **a['params'] )
+  if len(found) == 1:
+    s = found_action['func']( **found_action['params'] )
+  elif len(found) > 1:
+    log.error('ambiguous operation: matches: %s' % ', '.join(found) )
+    s = False
   else:
     log.error('unknown operation: use "help" for a list of valid ones')
     s = False
