@@ -493,7 +493,7 @@ def main(argv):
   dryrun = False
 
   try:
-    opts, remainder = gnu_getopt(argv, '', [ 'debug', 'tarball=', 'extended', 'dryrun' ])
+    opts, remainder = gnu_getopt(argv, '', [ 'debug', 'tarball=', 'extended', 'dryrun', 'dry-run' ])
     for o, a in opts:
       if o == '--debug':
         debug = True
@@ -501,7 +501,7 @@ def main(argv):
         tarball = a
       elif o == '--extended':
         extended = True
-      elif o == '--dryrun':
+      elif o == '--dryrun' or o == '--dry-run':
         dryrun = True
   except GetoptError as e:
     log.error('error parsing options: %s' % e)
