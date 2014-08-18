@@ -1,0 +1,12 @@
+#!/bin/env python
+
+import sys, os
+
+pylib = os.path.dirname( os.path.abspath(__file__) ) + '/../pylib'
+if os.path.isdir(pylib):
+  sys.path.insert(0, pylib)
+
+import alirelval
+
+if __name__ == '__main__':
+  sys.exit( alirelval.main(sys.argv[1:]) )
