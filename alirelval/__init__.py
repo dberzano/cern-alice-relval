@@ -271,22 +271,21 @@ def list_validations(valstatus, what, extended=False):
     tab.align['Duration']='r'
     tab.padding_width = 1
     for v in vals:
-      try:
-        delta = v.ended - v.started
-        delta = str(delta)
-        idx = delta.rfind('.')
-        if idx > 0:
-          delta = delta[0:idx]
-      except Exception:
-        delta = '-'
-      if v.started is not None:
-        started = v.started.get_formatted_str(TimeStamp.datefmt.NO_USEC)
-      else:
+      if v.started is None:
         started = '-'
-      if v.ended is not None:
+        ended = started
+        delta = started
+      elif v.ended is not None:
+        started = v.started.get_formatted_str(TimeStamp.datefmt.NO_USEC)
         ended = v.ended.get_formatted_str(TimeStamp.datefmt.NO_USEC)
+        delta = str(v.ended-v.started)
       else:
+        started = v.started.get_formatted_str(TimeStamp.datefmt.NO_USEC)
         ended = '-'
+        delta = str(TimeStamp()-v.started)
+      idx = delta.rfind('.')
+      if idx > 0:
+        delta = delta[0:idx]
       tab.add_row([
         v.package.software,
         v.package.platform,
