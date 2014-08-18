@@ -68,6 +68,10 @@ fpm \
   -s dir \
   -t rpm \
   -a all \
+  --depends 'python >= 2.6' \
+  --depends 'sqlite' \
+  --depends 'python-prettytable' \
+  --depends 'python-urllib3' \
   --force \
   --version "$(cat VERSION)" \
   --iteration "$MetaIteration" \
