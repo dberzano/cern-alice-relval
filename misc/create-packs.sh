@@ -95,7 +95,7 @@ for package_format in $package_targets ; do
   mkdir -p "${tmpdir_rsync}/bin/"
   rsync -a "${package_src}/bin/" "${tmpdir_rsync}/bin" \
     $( for i in ${exclude_rsync[@]} ; do echo --exclude $i ; done ) || exit 1
-  chmod u=rwX,g=rX,o=rX -R "${package_src}"
+  chmod -R u=rwX,g=rX,o=rX "${package_src}"
 
   if [ "$verbose" == 1 ] ; then
     pe 'python compiling'
