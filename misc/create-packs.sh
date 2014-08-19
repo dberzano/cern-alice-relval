@@ -10,93 +10,129 @@ function pe() {
   echo -e "\033[35m> $1\033[m"
 }
 
-PackageSourceDir="$( cd `dirname "$0"`/.. ; pwd )"
-cd "$PackageSourceDir"
+package_src="$( cd `dirname "$0"`/.. ; pwd )"
+cd "$package_src"
 
-# dest dir can be under current source dir
-PackageDestDir="$PackageSourceDir/misc/dist"
+# parse cmdline args
+while [ $# -gt 0 ] ; do
+  case "$1" in
+    --iteration)
+      iteration="$2"
+      shift
+    ;;
+    --verbose)
+      verbose=1
+    ;;
+    --clean)
+      clean=1
+    ;;
+    *)
+      pe "invalid param: $1"
+      exit 1
+    ;;
+  esac
+  shift
+done
+
+# dest dir *can* be under current source dir
+package_dest="$package_src/misc/dist"
+
+# clean?
+if [ "$clean" == 1 ] ; then
+  pe 'cleaning up packages dir'
+  rm -f "${package_dest}"/*
+  exit $?
+fi
 
 # work dir *cannot* be under current source dir
-PackageWorkDir=$( mktemp -d /tmp/packwd-XXXXX )
+tmpdir_rsync=$( mktemp -d /tmp/create-pack-rsync-XXXXX )
 [ $? == 0 ] || exit 1
-FpmWorkDir=$( mktemp -d /tmp/fpmwd-XXXXX )
+tmpdir_fpm=$( mktemp -d /tmp/create-pack-fpm-XXXXX )
 
-# author, vendor, maintanier
-MetaAuthor='Dario Berzano <dario.berzano@cern.ch>'
-MetaDescr='Controls the Release Validation of the ALICE LHC experiment at CERN'
-MetaUrl='https://github.com/dberzano/cern-alice-setup'
-MetaName='python-cern-alice-relval'
-
-pe "Source : $PackageSourceDir"
-pe "Dest   : $PackageDestDir"
-
-mkdir -p "$PackageDestDir"
-
-# Configuration files: all in etc but without *.example files
-#export ConfigFiles=$( find etc -type f -and -not -name '*.example' -exec echo --config-files '{}' \; )
-ConfigFiles=''
+mkdir -p "$package_dest"
 
 # config files
-PackConfigFiles=''
+#export config_files=$( find etc -type f -and -not -name '*.example' -exec echo --config-files '{}' \; )
+config_files=''
 
 # exclusions
-PackExclusions=( '.git' '.gitignore' 'VERSION' 'README*' 'misc' 'tmp' )
-RsyncExclusions=( "${PackExclusions[@]}" '*.pyc' '*.pyo' )
+exclude_fpm=( '.git' '.gitignore' 'VERSION' 'README*' 'misc' 'tmp' )
+exclude_rsync=( "${exclude_fpm[@]}" '*.pyc' '*.pyo' )
 
-pe 'creating directory structure'
-PyLib=$( python -c 'from distutils.sysconfig import get_python_lib; print get_python_lib()' )
-mkdir -p "${PackageWorkDir}/${PyLib}"
-rsync -va "${PackageSourceDir}/pylib/" "${PackageWorkDir}/${PyLib}" \
-  $( for i in ${RsyncExclusions[@]} ; do echo --exclude $i ; done ) || exit 1
-mkdir -p "${PackageWorkDir}/bin/"
-rsync -va "${PackageSourceDir}/bin/" "${PackageWorkDir}/bin" \
-  $( for i in ${RsyncExclusions[@]} ; do echo --exclude $i ; done ) || exit 1
-chmod u=rwX,g=rX,o=rX -R "${PackageSourceDir}"
+# version and "iteration"
+if [ "$iteration" == '' ] ; then
+  iteration=$( cat ITERATION 2> /dev/null || echo 0 )
+  iteration=$(( iteration + 1 ))
+fi
+echo $iteration > ITERATION
+version="$(cat VERSION)"
+pe "version: $version, iteration: $iteration (override with --iteration <n>)"
 
-pe 'python compiling'
-python -m compileall "${PackageWorkDir}/${PyLib}" || exit 1
+for package_format in rpm deb ; do
 
-pe 'listing directory structure'
-( cd "$PackageWorkDir" ; find . -ls )
+  rm -rf "${tmpdir_rsync}"/* "${tmpdir_fpm}"/*
 
-MetaIteration=$( cat ITERATION 2> /dev/null || echo 0 )
-MetaIteration=$(( MetaIteration + 1 ))
-echo $MetaIteration > ITERATION
-pe "version: $(cat VERSION) iteration: $MetaIteration"
+  case $package_format in
+    rpm) python_libdir="/usr/lib/python2.7/site-packages" ;;
+    deb) python_libdir="/usr/lib/python2.7/dist-packages" ;;
+  esac
+  pe "format: $package_format, python libdir: $python_libdir" 
 
-fpm \
-  -s dir \
-  -t rpm \
-  -a all \
-  --depends 'python >= 2.6' \
-  --depends 'sqlite' \
-  --depends 'python-prettytable' \
-  --depends 'python-urllib3' \
-  --force \
-  --version "$(cat VERSION)" \
-  --iteration "$MetaIteration" \
-  --name "$MetaName" \
-  --package "$PackageDestDir" \
-  --workdir "$FpmWorkDir" \
-  --vendor "$MetaAuthor" \
-  --maintainer "$MetaAuthor" \
-  --description "$MetaDescr" \
-  --url "$MetaUrl" \
-  $( for i in ${PackConfigFiles[@]} ; do echo --config-files $i ; done ) \
-  --prefix / \
-  $( for i in ${PackExclusions[@]} ; do echo --exclude $i ; done ) \
-  -C "$PackageWorkDir" \
-  . || exit 1
+  mkdir -p "${tmpdir_rsync}/${python_libdir}"
+  rsync -a "${package_src}/pylib/" "${tmpdir_rsync}/${python_libdir}" \
+    $( for i in ${exclude_rsync[@]} ; do echo --exclude $i ; done ) || exit 1
+  mkdir -p "${tmpdir_rsync}/bin/"
+  rsync -a "${package_src}/bin/" "${tmpdir_rsync}/bin" \
+    $( for i in ${exclude_rsync[@]} ; do echo --exclude $i ; done ) || exit 1
+  chmod u=rwX,g=rX,o=rX -R "${package_src}"
 
-rm -rf "$PackageWorkDir" "$FpmWorkDir"
+  if [ "$verbose" == 1 ] ; then
+    pe 'python compiling'
+    python -m compileall "${tmpdir_rsync}/${python_libdir}" || exit 1
+  else
+    python -m compileall -q "${tmpdir_rsync}/${python_libdir}" || exit 1
+  fi
 
-Rpm=$( ls -1rt "$PackageDestDir"/*.rpm | tail -n1 )
+  if [ "$verbose" == 1 ] ; then
+    pe 'listing directory structure'
+    ( cd "$tmpdir_rsync" ; find . -ls )
+  fi
 
-pe 'packages dir'
-ls -l "$PackageDestDir"
+  author='Dario Berzano <dario.berzano@cern.ch>'
+  fpm \
+    -s dir \
+    -t $package_format \
+    -a all \
+    --force \
+    --depends     'python >= 2.6' \
+    --depends     'sqlite' \
+    --depends     'python-prettytable' \
+    --depends     'python-urllib3' \
+    --name        'python-cern-alice-relval' \
+    --version     "$version" \
+    --iteration   "$iteration" \
+    --prefix      / \
+    --package     "$package_dest" \
+    --workdir     "$tmpdir_fpm" \
+    --vendor      "$author" \
+    --maintainer  "$author" \
+    --description 'Controls the Release Validation of the ALICE LHC experiment at CERN' \
+    --url         'https://github.com/dberzano/cern-alice-setup' \
+    -C            "$tmpdir_rsync" \
+    $( for i in ${config_files[@]} ; do echo --config-files $i ; done ) \
+    $( for i in ${exclude_fpm[@]} ; do echo --exclude $i ; done ) \
+    . || exit 1
 
-pe 'rpm info'
-rpm -qip "$Rpm"
+  if [ "$verbose" == 1 ] ; then
+    if [ "$package_format" == 'rpm' ] ; then
+      rpm_file=$( ls -1rt "$package_dest"/*.rpm | tail -n1 )
+      pe 'rpm info'
+      rpm -qip "$rpm_file"
+      pe 'rpm contents'
+      rpm -qlp "$rpm_file"
+    fi
+  fi
 
-pe 'rpm contents'
-rpm -qlp "$Rpm"
+done
+
+rm -rf "$tmpdir_rsync" "$tmpdir_fpm"
