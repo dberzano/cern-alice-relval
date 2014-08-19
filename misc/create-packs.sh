@@ -26,6 +26,10 @@ while [ $# -gt 0 ] ; do
     --clean)
       clean=1
     ;;
+    --targets)
+      package_targets="$2"
+      shift
+    ;;
     *)
       pe "invalid param: $1"
       exit 1
@@ -44,6 +48,10 @@ if [ "$clean" == 1 ] ; then
   exit $?
 fi
 
+if [ "$package_targets" == '' ] ; then
+  package_targets='rpm'
+fi
+
 # work dir *cannot* be under current source dir
 tmpdir_rsync=$( mktemp -d /tmp/create-pack-rsync-XXXXX )
 [ $? == 0 ] || exit 1
@@ -59,6 +67,8 @@ config_files=''
 exclude_fpm=( '.git' '.gitignore' 'VERSION' 'README*' 'misc' 'tmp' )
 exclude_rsync=( "${exclude_fpm[@]}" '*.pyc' '*.pyo' )
 
+python_version='2.7'
+
 # version and "iteration"
 if [ "$iteration" == '' ] ; then
   iteration=$( cat ITERATION 2> /dev/null || echo 0 )
@@ -68,15 +78,16 @@ echo $iteration > ITERATION
 version="$(cat VERSION)"
 pe "version: $version, iteration: $iteration (override with --iteration <n>)"
 
-for package_format in rpm deb ; do
+for package_format in $package_targets ; do
 
   rm -rf "${tmpdir_rsync}"/* "${tmpdir_fpm}"/*
 
   case $package_format in
-    rpm) python_libdir="/usr/lib/python2.7/site-packages" ;;
-    deb) python_libdir="/usr/lib/python2.7/dist-packages" ;;
+    rpm) python_libdir="/usr/lib/python${python_version}/site-packages" ;;
+    deb) python_libdir="/usr/lib/python${python_version}/dist-packages" ;;
+    osxpkg) python_libdir="/Library/Python/${python_version}/site-packages" ;;
   esac
-  pe "format: $package_format, python libdir: $python_libdir" 
+  pe "format: $package_format (override: --targets \"fmt1 fmt2...\"), python libdir: $python_libdir" 
 
   mkdir -p "${tmpdir_rsync}/${python_libdir}"
   rsync -a "${package_src}/pylib/" "${tmpdir_rsync}/${python_libdir}" \
@@ -104,7 +115,7 @@ for package_format in rpm deb ; do
     -t $package_format \
     -a all \
     --force \
-    --depends     'python >= 2.6' \
+    --depends     "python = $python_version" \
     --depends     'sqlite' \
     --depends     'python-prettytable' \
     --depends     'python-urllib3' \
