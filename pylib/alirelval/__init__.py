@@ -83,10 +83,13 @@ def init_logger(log_directory=None, debug=False):
 def init_config(config_file):
   log = get_logger()
   parser = ConfigParser.SafeConfigParser()
-  parser.read(config_file)
-  sec = 'alirelval'
+  if os.path.isfile(config_file):
+    parser.read(config_file)
+    gen_default_config_file = False
+  else:
+    gen_default_config_file = True
 
-  # 'key': ['type', default]
+  # [ 'sec': { 'var': ['type', default], ... }, ... ]
   config_vars = {
     'alirelval': {
       'logdir': ['path', '~/.alirelval/log'],
@@ -126,6 +129,9 @@ def init_config(config_file):
         elif vartype == 'bool':
           config_vars[sec][c] = parser.getboolean(sec, c)
       except Exception:
+        if not parser.has_section(sec):
+          parser.add_section(sec)
+        parser.set(sec, ';'+c, str(config_vars[sec][c][1]))
         config_vars[sec][c] = config_vars[sec][c][1]
         default = True
 
@@ -135,6 +141,11 @@ def init_config(config_file):
         log.debug('%s.%s = %s (default)' % (sec, c, config_vars[sec][c]))
       else:
         log.debug('%s.%s = %s (from file)' % (sec, c, config_vars[sec][c]))
+
+  if gen_default_config_file:
+    log.warning('config file not found: generating default template: %s' % config_file)
+    with open(config_file, 'w') as of:
+      parser.write(of)
 
   return config_vars
 
