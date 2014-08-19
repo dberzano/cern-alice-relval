@@ -128,7 +128,7 @@ for package_format in $package_targets ; do
     --vendor      "$author" \
     --maintainer  "$author" \
     --description 'Controls the Release Validation of the ALICE LHC experiment at CERN' \
-    --url         'https://github.com/dberzano/cern-alice-setup' \
+    --url         'https://github.com/dberzano/cern-alice-relval' \
     -C            "$tmpdir_rsync" \
     $( for i in ${config_files[@]} ; do echo --config-files $i ; done ) \
     $( for i in ${exclude_fpm[@]} ; do echo --exclude $i ; done ) \
