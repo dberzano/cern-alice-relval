@@ -44,7 +44,7 @@ package_dest="$package_src/misc/dist"
 # clean?
 if [ "$clean" == 1 ] ; then
   pe 'cleaning up packages dir'
-  rm -f "${package_dest}"/*
+  rm -vf "${package_dest}"/*.{rpm,deb,pkg}
   exit $?
 fi
 
@@ -71,11 +71,11 @@ python_version='2.7'
 
 # version and "iteration"
 if [ "$iteration" == '' ] ; then
-  iteration=$( cat ITERATION 2> /dev/null || echo 0 )
+  iteration=$( cat misc/dist/latest_iteration 2> /dev/null || echo 0 )
   iteration=$(( iteration + 1 ))
 fi
-echo $iteration > ITERATION
-version="$(cat VERSION)"
+echo $iteration > misc/dist/latest_iteration
+version="$( cd pylib ; python -c 'import alirelval ; print alirelval.__version__' )"
 pe "version: $version, iteration: $iteration (override with --iteration <n>)"
 
 for package_format in $package_targets ; do

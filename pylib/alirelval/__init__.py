@@ -4,6 +4,8 @@
 # Controls automatic trigger of the ALICE Release Validation.
 #
 
+__version__ = '0.9.1'
+
 import sys, os, urllib
 from prettytable import PrettyTable
 from alipack import AliPack, AliPackError
