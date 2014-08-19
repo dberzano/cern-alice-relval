@@ -4,7 +4,6 @@
 # Controls automatic trigger of the ALICE Release Validation.
 #
 
-__version__ = '0.9.1'
 __version__ = '0.9.2'
 
 import sys, os, urllib
@@ -216,6 +215,11 @@ def show_help(actions):
     else:
       tab.add_row([ a['aliases'][0], '-' ])
   print tab
+  return True
+
+
+def show_version():
+  print 'alirelval version %s' % __version__
   return True
 
 
@@ -548,6 +552,8 @@ def main(argv):
   cfg = init_config( os.path.expanduser('~/.alirelval/alirelval.conf') )
   init_logger( log_directory=cfg['alirelval']['logdir'], debug=debug )
 
+  log.debug('alirelval version %s started' % __version__)
+
   if not check_lock(cfg['alirelval']['pidfile']):
     return 1
 
@@ -648,6 +654,13 @@ def main(argv):
         'mail': cfg['mail'],
         'dryrun': dryrun
       }
+    },
+
+    # version
+    {
+      'aliases': [ 'version' ],
+      'func': show_version,
+      'params': None
     },
 
     # help
