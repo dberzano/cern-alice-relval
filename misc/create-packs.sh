@@ -115,7 +115,7 @@ for package_format in $package_targets ; do
     -t $package_format \
     -a all \
     --force \
-    --depends     "python = $python_version" \
+    --depends     "python >= $python_version" \
     --depends     'sqlite' \
     --depends     'python-prettytable' \
     --depends     'python-urllib3' \
