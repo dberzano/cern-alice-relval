@@ -678,7 +678,10 @@ def main(argv):
       break
 
   if len(found) == 1:
-    s = found_action['func']( **found_action['params'] )
+    if 'params' in found_action and found_action['params'] is not None:
+      s = found_action['func']( **found_action['params'] )
+    else:
+      s = found_action['func']()
   elif len(found) > 1:
     log.error('ambiguous operation: matches: %s' % ', '.join(found) )
     s = False
